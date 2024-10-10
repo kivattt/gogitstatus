@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -43,16 +44,28 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 		}
 	}
 
+//	entryLength, _ := file.Seek(0, 1)
+
 	// Null byte padding
 	n := 8 - (entryLength % 8)
 	if n == 0 {
 		n = 8
 	}
 
-	_, err := file.Seek(int64(n), 1)
+	fmt.Println("padding:", n)
+
+//	_, err := file.Seek(int64(n), 1)
+	b := make([]byte, n)
+	_, err := io.ReadFull(file, b)
 	if err != nil {
 		return "", errors.New("Invalid size, readIndexEntryPathName failed while seeking over null bytes: " + err.Error())
 	}
+
+	/*for _, e := range b {
+		if e != 0 {
+			return "", errors.New("Non-null byte found in null padding")
+		}
+	}*/
 
 	return ret.String(), nil
 }
@@ -92,6 +105,7 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
+	fmt.Println("Num entries:", numEntries)
 	entries := make([]gitIndexEntry, numEntries)
 
 	var entryIndex uint32
@@ -157,6 +171,16 @@ func hashMatches(path string, hash []byte) bool {
 		return false
 	}
 
+/*	bool2Str := func(b bool) string {
+		if b {
+			return "true"
+		}
+		return "false"
+	}
+
+	b := reflect.DeepEqual(hash, newHash.Sum(nil))
+	fmt.Println(path + " hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b))*/
+
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }
 
@@ -191,6 +215,11 @@ func Status(path string) ([]string, error) {
 	indexEntries, err := parseGitIndex(indexPath)
 	if err != nil {
 		return nil, errors.New("Unable to read " + indexPath + ": " + err.Error())
+	}
+
+	fmt.Println("Index entries:")
+	for _, e := range indexEntries {
+		fmt.Println(len(e.path), e.path)
 	}
 
 	var paths []string
