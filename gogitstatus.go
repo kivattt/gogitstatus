@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -94,8 +92,6 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
-	fmt.Println("num entries:", numEntries)
-
 	entries := make([]gitIndexEntry, numEntries)
 
 	var entryIndex uint32
@@ -145,27 +141,23 @@ func hashMatches(path string, hash []byte) bool {
 		return false
 	}
 
-	/*stat, err := os.Stat(path)
+	stat, err := os.Stat(path)
 	if err != nil {
 		return false
-	}*/
+	}
 
 	newHash := sha1.New()
-	/*_, err = newHash.Write([]byte("blob " + strconv.FormatInt(stat.Size(), 10)))
+	_, err = newHash.Write(append([]byte("blob " + strconv.FormatInt(stat.Size(), 10)), 0))
 	if err != nil {
 		return false
-	}*/
+	}
 
 	_, err = io.Copy(newHash, file) // TODO: Check if written size is same as stat.Size() ?
 	if err != nil {
 		return false
 	}
 
-//	newHashBytes := make([]byte, newHash.Size())
-//	newHash.Sum(newHashBytes)
-	fmt.Println("old hash:" + hex.EncodeToString(hash), ", new hash:" + hex.EncodeToString(newHash.Sum(nil)))
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
-//	return reflect.DeepEqual(hash, newHashBytes)
 }
 
 // Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error
@@ -201,14 +193,13 @@ func Status(path string) ([]string, error) {
 		return nil, errors.New("Unable to read " + indexPath + ": " + err.Error())
 	}
 
-	fmt.Println("INDEX ENTRIES:")
-	for _, e := range indexEntries {
-		fmt.Println("path: " + string(e.path) + ", hash: " + hex.EncodeToString(e.hash))
-	}
-
 	var paths []string
 	// Accumulate all not-ignored paths
 	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
+		if filePath == "." {
+			return nil
+		}
+
 		if ignoreEntry(d) {
 			return filepath.SkipDir
 		}
@@ -223,7 +214,8 @@ func Status(path string) ([]string, error) {
 			if pathFound == -1 {
 				continue
 			}
-			paths = slices.Delete(paths, pathFound, pathFound)
+
+			paths = slices.Delete(paths, pathFound, pathFound+1)
 		}
 	}
 
