@@ -2,6 +2,7 @@ package gogitstatus
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -10,39 +11,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
-
-type Operation int
-const (
-	NewFile Operation = 0
-	Added = 1
-	Removed = 2
-	Renamed = 3
-)
-
-// Returns "unknown" if given an invalid operation value
-func OperationToString(operation Operation) string {
-	switch operation {
-	case NewFile:
-		return "new file"
-	case Added:
-		return "added"
-	case Removed:
-		return "removed"
-	case Renamed:
-		return "renamed"
-	}
-
-	return "unknown"
-}
-
-type FileStatus struct {
-	entry fs.DirEntry
-	operation Operation
-	oldNameIfRenamed string
-}
 
 // Simplified, we only care about the relative path and hash
 type gitIndexEntry struct {
@@ -53,6 +26,8 @@ type gitIndexEntry struct {
 func readIndexEntryPathName(file *os.File) (string, error) {
 	var ret strings.Builder
 
+	entryLength := 42 + 20
+
 	singleByteSlice := make([]byte, 1)
 	for {
 		_, err := io.ReadFull(file, singleByteSlice)
@@ -60,24 +35,25 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 			return "", errors.New("Invalid size, readIndexEntryPathName failed: " + err.Error())
 		}
 
+		entryLength++
 		b := singleByteSlice[0]
 
 		if b == 0 {
-			for i := 0; i < 7; i++ {
-				_, err := io.ReadFull(file, singleByteSlice)
-				if err != nil {
-					return "", errors.New("Invalid size, readIndexEntryPathName failed while iterating over null bytes: " + err.Error())
-				}
-
-				if singleByteSlice[0] != 0 {
-					file.Seek(-1, 1)
-					break
-				}
-			}
 			break
 		} else {
 			ret.WriteByte(b)
 		}
+	}
+
+	// Null byte padding
+	n := 8 - (entryLength % 8)
+	if n == 0 {
+		n = 8
+	}
+
+	_, err := file.Seek(int64(n), 1)
+	if err != nil {
+		return "", errors.New("Invalid size, readIndexEntryPathName failed while seeking over null bytes: " + err.Error())
 	}
 
 	return ret.String(), nil
@@ -125,7 +101,7 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
 		// Seek to "object name" (hash data)
-		_, err := file.Seek(42, 1) // 336 bits
+		_, err := file.Seek(40, 1)
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to seek within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
@@ -138,10 +114,10 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 		}
 
 		// Seek to entry path name
-		/*_, err = file.Seek(6, 1) // 48 bits
+		_, err = file.Seek(2, 1)
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to seek within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
-		}*/
+		}
 
 		// Read variable-length path name
 		pathName, err := readIndexEntryPathName(file)
@@ -163,8 +139,37 @@ func ignoreEntry(entry fs.DirEntry) bool {
 	return false
 }
 
-// Takes in the path of a local git repository and returns the list of changed (uncommited) files, or an error
-func Status(path string) ([]FileStatus, error) {
+func hashMatches(path string, hash []byte) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+
+	/*stat, err := os.Stat(path)
+	if err != nil {
+		return false
+	}*/
+
+	newHash := sha1.New()
+	/*_, err = newHash.Write([]byte("blob " + strconv.FormatInt(stat.Size(), 10)))
+	if err != nil {
+		return false
+	}*/
+
+	_, err = io.Copy(newHash, file) // TODO: Check if written size is same as stat.Size() ?
+	if err != nil {
+		return false
+	}
+
+//	newHashBytes := make([]byte, newHash.Size())
+//	newHash.Sum(newHashBytes)
+	fmt.Println("old hash:" + hex.EncodeToString(hash), ", new hash:" + hex.EncodeToString(newHash.Sum(nil)))
+	return reflect.DeepEqual(hash, newHash.Sum(nil))
+//	return reflect.DeepEqual(hash, newHashBytes)
+}
+
+// Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error
+func Status(path string) ([]string, error) {
 	gitPath := filepath.Join(path, ".git")
 	indexPath := filepath.Join(path, ".git", "index")
 
@@ -174,23 +179,24 @@ func Status(path string) ([]FileStatus, error) {
 	}
 
 	_, err = os.Stat(indexPath)
-	// If .git/index file is missing, all files are "new file"
+	// If .git/index file is missing, all files are unstaged/untracked
 	if err != nil {
 		entries, err := os.ReadDir(path)
 		if err != nil {
 			return nil, err
 		}
 
-		var ret []FileStatus
+		var paths []string
 		for _, e := range entries {
 			if !ignoreEntry(e) {
-				ret = append(ret, FileStatus{entry: e, operation: NewFile})
+				paths = append(paths, e.Name())
 			}
 		}
-		return ret, nil
+
+		return paths, nil
 	}
 
-	indexEntries, err := parseGitIndex(filepath.Join(path, ".git", "index"))
+	indexEntries, err := parseGitIndex(indexPath)
 	if err != nil {
 		return nil, errors.New("Unable to read " + indexPath + ": " + err.Error())
 	}
@@ -200,5 +206,26 @@ func Status(path string) ([]FileStatus, error) {
 		fmt.Println("path: " + string(e.path) + ", hash: " + hex.EncodeToString(e.hash))
 	}
 
-	return nil, nil
+	var paths []string
+	// Accumulate all not-ignored paths
+	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
+		if ignoreEntry(d) {
+			return filepath.SkipDir
+		}
+
+		paths = append(paths, filePath)
+		return nil
+	})
+
+	for _, entry := range indexEntries {
+		if hashMatches(entry.path, entry.hash) {
+			pathFound := slices.Index(paths, entry.path)
+			if pathFound == -1 {
+				continue
+			}
+			paths = slices.Delete(paths, pathFound, pathFound)
+		}
+	}
+
+	return paths, nil
 }

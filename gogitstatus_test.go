@@ -7,8 +7,9 @@ import (
 
 func TestStatus(t *testing.T) {
 	entries, err := Status(".")
+	fmt.Print("\n\n\n")
 	for _, e := range entries {
-		fmt.Println(OperationToString(e.operation), e.entry.Name())
+		fmt.Println(e)
 	}
 	fmt.Println("Error:", err)
 }
