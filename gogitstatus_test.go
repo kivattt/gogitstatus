@@ -12,6 +12,13 @@ import (
 	"testing"
 )
 
+func TestStatus(t *testing.T) {
+	_, err := Status("", "1", "2")
+	if err == nil || err.Error() != "Only 1 optional alternateDotGit argument allowed" {
+		t.Fatal("Status did not error on too many optional arguments")
+	}
+}
+
 func TestParseGitIndex(t *testing.T) {
 	testsPath := "./tests-index-parser"
 	tests, err := os.ReadDir(testsPath)

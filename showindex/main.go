@@ -19,8 +19,8 @@ func main() {
 
 	entries, err := gogitstatus.ParseGitIndex(path)
 	if err != nil {
-		fmt.Println("error: " + err.Error())
-		return
+		fmt.Println("error:", err)
+		os.Exit(1)
 	}
 
 	for _, e := range entries {

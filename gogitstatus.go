@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -137,8 +135,8 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	return entries, nil
 }
 
-func ignoreEntry(entry fs.DirEntry) bool {
-	if entry.Name() == ".git" {
+func ignoreEntry(entry fs.DirEntry, dotGit string) bool {
+	if entry.Name() == dotGit {
 		return true
 	}
 
@@ -168,7 +166,8 @@ func hashMatches(path string, hash []byte) bool {
 		return false
 	}
 
-	bool2Str := func(b bool) string {
+	// Debugging
+	/*bool2Str := func(b bool) string {
 		if b {
 			return "\x1b[32m true\x1b[0m"
 		}
@@ -176,15 +175,25 @@ func hashMatches(path string, hash []byte) bool {
 	}
 
 	b := reflect.DeepEqual(hash, newHash.Sum(nil))
-	fmt.Println("hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b) + ", " + path)
+	fmt.Println("hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b) + ", " + path)*/
 
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }
 
-// Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error
-func Status(path string) ([]string, error) {
-	gitPath := filepath.Join(path, ".git")
-	indexPath := filepath.Join(path, ".git", "index")
+// Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
+// The optional alternateDotGit parameter is for testing a local git repository without a ".git" directory, instead being named something else
+func Status(path string, alternateDotGit ...string) ([]string, error) {
+	if len(alternateDotGit) > 1 {
+		return nil, errors.New("Only 1 optional alternateDotGit argument allowed")
+	}
+
+	dotGit := ".git"
+	if len(alternateDotGit) == 1 {
+		dotGit = alternateDotGit[0]
+	}
+
+	gitPath := filepath.Join(path, dotGit)
+	indexPath := filepath.Join(path, dotGit, "index")
 
 	stat, err := os.Stat(gitPath)
 	if err != nil || !stat.IsDir() {
@@ -201,7 +210,7 @@ func Status(path string) ([]string, error) {
 
 		var paths []string
 		for _, e := range entries {
-			if !ignoreEntry(e) {
+			if !ignoreEntry(e, dotGit) {
 				paths = append(paths, e.Name())
 			}
 		}
@@ -214,15 +223,15 @@ func Status(path string) ([]string, error) {
 		return nil, errors.New("Unable to read " + indexPath + ": " + err.Error())
 	}
 
-	fmt.Println("Index entries:")
-	/*for _, e := range indexEntries {
-		fmt.Println(len(e.path), e.path)
-	}*/
+	stat, err = os.Stat(path)
+	if err != nil || !stat.IsDir() {
+		return nil, errors.New("Path does not exist: " + path)
+	}
 
 	var paths []string
 	// Accumulate all not-ignored paths
 	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
-		if ignoreEntry(d) {
+		if ignoreEntry(d, dotGit) {
 			return filepath.SkipDir
 		}
 
@@ -235,8 +244,8 @@ func Status(path string) ([]string, error) {
 	})
 
 	for _, entry := range indexEntries {
-		if hashMatches(entry.Path, entry.Hash) {
-			pathFound := slices.Index(paths, entry.Path)
+		if hashMatches(filepath.Join(path, entry.Path), entry.Hash) {
+			pathFound := slices.Index(paths, filepath.Join(path, entry.Path))
 			if pathFound == -1 {
 				continue
 			}
