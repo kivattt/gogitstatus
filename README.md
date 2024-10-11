@@ -4,7 +4,7 @@ cd showindex
 go build
 ./showindex index
 ```
-An example index file has been provided in `showindex/index`
+An example Git index file has been provided in `showindex/index`
 
 ## TODO
 - Support SHA-256
