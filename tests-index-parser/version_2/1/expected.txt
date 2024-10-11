@@ -1,0 +1,4 @@
+428cc6af68db117b8cc29e598678a04c6f6e85f5 README.md
+ea3d7f2dc5f21c5c4283ce907292d7d4fcd9d17b go.mod
+a6dc0b9ec73d6ec3661fe72125c49e7f1feae485 gogitstatus.go
+c1748ebc98031ecdc61ae452ca23debae30b09aa gogitstatus_test.go

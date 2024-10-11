@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,7 @@ import (
 )
 
 // Simplified, we only care about the relative path and hash
-type gitIndexEntry struct {
+type GitIndexEntry struct {
 	path string
 	hash []byte // 20 bytes for the standard SHA-1
 }
@@ -72,7 +73,7 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 
 // Git Index file format version 2
 // https://git-scm.com/docs/index-format
-func parseGitIndex(path string) ([]gitIndexEntry, error) {
+func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -105,8 +106,7 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
-	fmt.Println("Num entries:", numEntries)
-	entries := make([]gitIndexEntry, numEntries)
+	entries := make([]GitIndexEntry, numEntries)
 
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
@@ -171,7 +171,7 @@ func hashMatches(path string, hash []byte) bool {
 		return false
 	}
 
-/*	bool2Str := func(b bool) string {
+	bool2Str := func(b bool) string {
 		if b {
 			return "true"
 		}
@@ -179,7 +179,7 @@ func hashMatches(path string, hash []byte) bool {
 	}
 
 	b := reflect.DeepEqual(hash, newHash.Sum(nil))
-	fmt.Println(path + " hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b))*/
+	fmt.Println(path + " hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b))
 
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }
@@ -212,7 +212,7 @@ func Status(path string) ([]string, error) {
 		return paths, nil
 	}
 
-	indexEntries, err := parseGitIndex(indexPath)
+	indexEntries, err := ParseGitIndex(indexPath)
 	if err != nil {
 		return nil, errors.New("Unable to read " + indexPath + ": " + err.Error())
 	}
