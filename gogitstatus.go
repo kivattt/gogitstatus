@@ -25,7 +25,8 @@ type gitIndexEntry struct {
 func readIndexEntryPathName(file *os.File) (string, error) {
 	var ret strings.Builder
 
-	entryLength := 42 + 20
+	// Entry length so far
+	entryLength := 40 + 20 + 2
 
 	singleByteSlice := make([]byte, 1)
 	for {
@@ -34,25 +35,24 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 			return "", errors.New("Invalid size, readIndexEntryPathName failed: " + err.Error())
 		}
 
-		entryLength++
 		b := singleByteSlice[0]
 
 		if b == 0 {
 			break
 		} else {
 			ret.WriteByte(b)
+			entryLength++
 		}
 	}
 
-//	entryLength, _ := file.Seek(0, 1)
-
-	// Null byte padding
+	// Read up to 7 extra null padding bytes
 	n := 8 - (entryLength % 8)
 	if n == 0 {
 		n = 8
 	}
+	n-- // We already read 1 null byte
 
-	fmt.Println("padding:", n)
+//	fmt.Println("padding:", n+1)
 
 //	_, err := file.Seek(int64(n), 1)
 	b := make([]byte, n)
@@ -61,11 +61,11 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 		return "", errors.New("Invalid size, readIndexEntryPathName failed while seeking over null bytes: " + err.Error())
 	}
 
-	/*for _, e := range b {
+	for _, e := range b {
 		if e != 0 {
-			return "", errors.New("Non-null byte found in null padding")
+			return "", errors.New("Non-null byte found in null padding of length " + strconv.Itoa(n))
 		}
-	}*/
+	}
 
 	return ret.String(), nil
 }
@@ -113,7 +113,7 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 		// Seek to "object name" (hash data)
 		_, err := file.Seek(40, 1)
 		if err != nil {
-			return nil, errors.New("Invalid size, unable to seek within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			return nil, errors.New("Invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		// Read hash data
@@ -126,7 +126,7 @@ func parseGitIndex(path string) ([]gitIndexEntry, error) {
 		// Seek to entry path name
 		_, err = file.Seek(2, 1)
 		if err != nil {
-			return nil, errors.New("Invalid size, unable to seek within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			return nil, errors.New("Invalid size, unable to seek to path name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		// Read variable-length path name
