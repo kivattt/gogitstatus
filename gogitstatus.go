@@ -218,19 +218,19 @@ func Status(path string) ([]string, error) {
 	}
 
 	fmt.Println("Index entries:")
-	for _, e := range indexEntries {
+	/*for _, e := range indexEntries {
 		fmt.Println(len(e.path), e.path)
-	}
+	}*/
 
 	var paths []string
 	// Accumulate all not-ignored paths
 	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
-		if filePath == "." {
-			return nil
-		}
-
 		if ignoreEntry(d) {
 			return filepath.SkipDir
+		}
+
+		if d.IsDir() {
+			return nil
 		}
 
 		paths = append(paths, filePath)
