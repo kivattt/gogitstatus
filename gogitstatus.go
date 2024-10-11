@@ -173,13 +173,13 @@ func hashMatches(path string, hash []byte) bool {
 
 	bool2Str := func(b bool) string {
 		if b {
-			return "true"
+			return "\x1b[32m true\x1b[0m"
 		}
-		return "false"
+		return "\x1b[31mfalse\x1b[0m"
 	}
 
 	b := reflect.DeepEqual(hash, newHash.Sum(nil))
-	fmt.Println(path + " hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b))
+	fmt.Println("hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b) + ", " + path)
 
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }

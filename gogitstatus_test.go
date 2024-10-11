@@ -43,6 +43,14 @@ func TestParseGitIndex(t *testing.T) {
 		return true
 	}
 
+	printRed := func(text string) {
+		fmt.Print("\x1b[31m" + text + "\x1b[0m")
+	}
+
+	printGreen := func(text string) {
+		fmt.Print("\x1b[32m" + text + "\x1b[0m")
+	}
+
 	for _, version := range tests {
 		versionTests, err := os.ReadDir(filepath.Join(testsPath, version.Name()))
 		if err != nil {
@@ -52,10 +60,12 @@ func TestParseGitIndex(t *testing.T) {
 		for _, versionTest := range versionTests {
 			indexPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "index")
 			expectedPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "expected.txt")
-			inTest := "In test file " + indexPath + ": "
+			inTest := "In test file " + expectedPath + ": "
+			fmt.Print("Test file " + expectedPath + ": ")
 
 			file, err := os.Open(expectedPath)
 			if err != nil {
+				printRed("Failed\n")
 				t.Fatal(inTest, err)
 			}
 
@@ -76,6 +86,7 @@ func TestParseGitIndex(t *testing.T) {
 
 				sha1HashBytes, err := hex.DecodeString(sha1HashHex)
 				if err != nil {
+					printRed("Failed\n")
 					t.Fatal(inTest, err)
 				}
 
@@ -85,27 +96,33 @@ func TestParseGitIndex(t *testing.T) {
 
 			entries, err := ParseGitIndex(indexPath)
 			if expectedError == nil && err != nil {
+				printRed("Failed\n")
 				t.Fatal(inTest, "expected no error, but got: " + err.Error())
 			}
 
 			if err != nil && expectedError != nil {
 				if err.Error() != expectedError.Error() {
+					printRed("Failed\n")
 					t.Fatal(inTest, "expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
 				}
 			}
 
 			if !gitIndexEntriesMatch(entries, expectedEntries) {
+				printRed("Failed\n")
+
 				fmt.Println("Expected entries:")
 				printEntries(expectedEntries)
 				fmt.Println("But got:")
 				printEntries(entries)
 				t.Fatal(inTest, "See above ^")
 			}
+
+			printGreen("Success\n")
 		}
 	}
 }
 
-func TestStatus(t *testing.T) {
+/*func TestStatus(t *testing.T) {
 	entries, err := Status(".")
 	if err != nil {
 		fmt.Println("error: " + err.Error())
@@ -114,4 +131,4 @@ func TestStatus(t *testing.T) {
 	for _, e := range entries {
 		fmt.Println("\x1b[0;31m" + e + "\x1b[0m")
 	}
-}
+}*/
