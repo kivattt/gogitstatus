@@ -84,7 +84,6 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	defer file.Close()
 
 	headerBytes := make([]byte, 12)
@@ -151,6 +150,7 @@ func hashMatches(path string, hash []byte) bool {
 	if err != nil {
 		return false
 	}
+	defer file.Close()
 
 	stat, err := os.Stat(path)
 	if err != nil {
