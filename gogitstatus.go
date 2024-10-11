@@ -17,10 +17,10 @@ import (
 	"strings"
 )
 
-// Simplified, we only care about the relative path and hash
+// A small subset of a Git index entry, only the relative path and 20-byte SHA-1 hash data
 type GitIndexEntry struct {
-	path string
-	hash []byte // 20 bytes for the standard SHA-1
+	Path string
+	Hash []byte // 20 bytes for the standard SHA-1
 }
 
 func readIndexEntryPathName(file *os.File) (string, error) {
@@ -53,9 +53,6 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 	}
 	n-- // We already read 1 null byte
 
-//	fmt.Println("padding:", n+1)
-
-//	_, err := file.Seek(int64(n), 1)
 	b := make([]byte, n)
 	_, err := io.ReadFull(file, b)
 	if err != nil {
@@ -71,8 +68,8 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 	return ret.String(), nil
 }
 
-// Git Index file format version 2
-// https://git-scm.com/docs/index-format
+// Parses a Git Index file (version 2)
+// See file format: https://git-scm.com/docs/index-format
 func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
@@ -117,8 +114,8 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 		}
 
 		// Read hash data
-		entries[entryIndex].hash = make([]byte, 20)
-		_, err = io.ReadFull(file, entries[entryIndex].hash)
+		entries[entryIndex].Hash = make([]byte, 20)
+		_, err = io.ReadFull(file, entries[entryIndex].Hash)
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
@@ -135,7 +132,7 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 			return nil, err
 		}
 
-		entries[entryIndex].path = pathName
+		entries[entryIndex].Path = pathName
 	}
 
 	return entries, nil
@@ -238,8 +235,8 @@ func Status(path string) ([]string, error) {
 	})
 
 	for _, entry := range indexEntries {
-		if hashMatches(entry.path, entry.hash) {
-			pathFound := slices.Index(paths, entry.path)
+		if hashMatches(entry.Path, entry.Hash) {
+			pathFound := slices.Index(paths, entry.Path)
 			if pathFound == -1 {
 				continue
 			}

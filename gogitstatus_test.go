@@ -21,7 +21,7 @@ func TestParseGitIndex(t *testing.T) {
 
 	printEntries := func(entries []GitIndexEntry) {
 		for _, e := range entries {
-			fmt.Println("    " + hex.EncodeToString(e.hash), e.path)
+			fmt.Println("    " + hex.EncodeToString(e.Hash), e.Path)
 		}
 	}
 
@@ -32,11 +32,11 @@ func TestParseGitIndex(t *testing.T) {
 
 		for i := 0; i < len(a); i++ {
 			left, right := a[i], b[i]
-			if !reflect.DeepEqual(left.hash, right.hash) {
+			if !reflect.DeepEqual(left.Hash, right.Hash) {
 				return false
 			}
 
-			if left.path != right.path {
+			if left.Path != right.Path {
 				return false
 			}
 		}
@@ -90,7 +90,7 @@ func TestParseGitIndex(t *testing.T) {
 					t.Fatal(inTest, err)
 				}
 
-				expectedEntries = append(expectedEntries, GitIndexEntry{path: pathName, hash: sha1HashBytes})
+				expectedEntries = append(expectedEntries, GitIndexEntry{Path: pathName, Hash: sha1HashBytes})
 			}
 			file.Close()
 
