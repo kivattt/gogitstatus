@@ -21,7 +21,7 @@ func TestParseGitIndex(t *testing.T) {
 
 	printEntries := func(entries []GitIndexEntry) {
 		for _, e := range entries {
-			fmt.Println("    " + hex.EncodeToString(e.Hash), e.Path)
+			fmt.Println("    "+hex.EncodeToString(e.Hash), e.Path)
 		}
 	}
 
@@ -97,13 +97,13 @@ func TestParseGitIndex(t *testing.T) {
 			entries, err := ParseGitIndex(indexPath)
 			if expectedError == nil && err != nil {
 				printRed("Failed\n")
-				t.Fatal(inTest, "expected no error, but got: " + err.Error())
+				t.Fatal(inTest, "expected no error, but got: "+err.Error())
 			}
 
 			if err != nil && expectedError != nil {
 				if err.Error() != expectedError.Error() {
 					printRed("Failed\n")
-					t.Fatal(inTest, "expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+					t.Fatal(inTest, "expected error text \""+expectedError.Error()+"\", but got: \""+err.Error()+"\"")
 				}
 			}
 

@@ -158,7 +158,7 @@ func hashMatches(path string, hash []byte) bool {
 	}
 
 	newHash := sha1.New()
-	_, err = newHash.Write(append([]byte("blob " + strconv.FormatInt(stat.Size(), 10)), 0))
+	_, err = newHash.Write(append([]byte("blob "+strconv.FormatInt(stat.Size(), 10)), 0))
 	if err != nil {
 		return false
 	}
