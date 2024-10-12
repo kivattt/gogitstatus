@@ -1,1 +1,1 @@
-tests-statusraw/4_mode_changed/files/file
+file

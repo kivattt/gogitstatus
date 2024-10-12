@@ -1,2 +1,2 @@
-tests-statusraw/3_valid/files/directory_unstaged/file.txt
-tests-statusraw/3_valid/files/helloworld_unstaged.txt
+directory_unstaged/file.txt
+helloworld_unstaged.txt

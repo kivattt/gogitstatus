@@ -57,7 +57,7 @@ func TestStatusRaw(t *testing.T) {
 				expectedError = errors.New(line[len("Error text:"):])
 				break
 			}
-			expectedPaths = append(expectedPaths, line)
+			expectedPaths = append(expectedPaths, filepath.Join(filesPath, line))
 		}
 
 		paths, err := StatusRaw(filesPath, indexPath)
