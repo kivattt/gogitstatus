@@ -20,7 +20,6 @@ func printGreen(text string) {
 	fmt.Print("\x1b[32m" + text + "\x1b[0m")
 }
 
-
 func TestStatusRaw(t *testing.T) {
 	testsPath := "./tests-statusraw"
 	tests, err := os.ReadDir(testsPath)
@@ -64,13 +63,13 @@ func TestStatusRaw(t *testing.T) {
 		paths, err := StatusRaw(filesPath, indexPath)
 		if expectedError == nil && err != nil {
 			printRed("Failed\n")
-			t.Fatal("expected no error, but got: "+err.Error())
+			t.Fatal("expected no error, but got: " + err.Error())
 		}
 
 		if err != nil && expectedError != nil {
 			if err.Error() != expectedError.Error() {
 				printRed("Failed\n")
-				t.Fatal("expected error text \""+expectedError.Error()+"\", but got: \""+err.Error()+"\"")
+				t.Fatal("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
 			}
 		}
 
@@ -167,13 +166,13 @@ func TestParseGitIndex(t *testing.T) {
 			entries, err := ParseGitIndex(indexPath)
 			if expectedError == nil && err != nil {
 				printRed("Failed\n")
-				t.Fatal("expected no error, but got: "+err.Error())
+				t.Fatal("expected no error, but got: " + err.Error())
 			}
 
 			if err != nil && expectedError != nil {
 				if err.Error() != expectedError.Error() {
 					printRed("Failed\n")
-					t.Fatal("expected error text \""+expectedError.Error()+"\", but got: \""+err.Error()+"\"")
+					t.Fatal("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
 				}
 			}
 

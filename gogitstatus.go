@@ -196,22 +196,23 @@ func hashMatches(path string, hash []byte) bool {
 }
 
 type WhatChanged int
+
 const (
 	// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/statinfo.h#L35
 	MTIME_CHANGED WhatChanged = 0x0001
-	CTIME_CHANGED = 0x0002
-	OWNER_CHANGED = 0x0004
-	MODE_CHANGED = 0x0008
-	INODE_CHANGED = 0x0010 // Use or not?
-	DATA_CHANGED = 0x0020
-	TYPE_CHANGED = 0x0040
+	CTIME_CHANGED             = 0x0002
+	OWNER_CHANGED             = 0x0004
+	MODE_CHANGED              = 0x0008
+	INODE_CHANGED             = 0x0010 // Use or not?
+	DATA_CHANGED              = 0x0020
+	TYPE_CHANGED              = 0x0040
 )
 
 const OBJECT_TYPE_MASK = 0b1111 << 12
 
-const REGULAR_FILE  = 0b1000 << 12
+const REGULAR_FILE = 0b1000 << 12
 const SYMBOLIC_LINK = 0b1010 << 12
-const GITLINK       = 0b1110 << 12
+const GITLINK = 0b1110 << 12
 
 // https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L307
 func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) WhatChanged {
@@ -224,11 +225,11 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 		}
 
 		// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L317
-		if fs.FileMode(entry.Mode) & fs.ModePerm & 0100 != stat.Mode() & fs.ModePerm & 0100 {
+		if fs.FileMode(entry.Mode)&fs.ModePerm&0100 != stat.Mode()&fs.ModePerm&0100 {
 			whatChanged |= MODE_CHANGED
 		}
 	case SYMBOLIC_LINK:
-		if stat.Mode() & os.ModeSymlink == 0 /*|| !stat.Mode().IsRegular()*/ {
+		if stat.Mode()&os.ModeSymlink == 0 /*|| !stat.Mode().IsRegular()*/ {
 			whatChanged |= TYPE_CHANGED
 		}
 	case GITLINK:

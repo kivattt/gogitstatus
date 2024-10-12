@@ -25,6 +25,6 @@ func main() {
 	}
 
 	for _, e := range entries {
-		fmt.Println(strconv.FormatInt(int64(e.Mode & 0b111111111), 8), hex.EncodeToString(e.Hash), e.Path)
+		fmt.Println(strconv.FormatInt(int64(e.Mode&0b111111111), 8), hex.EncodeToString(e.Hash), e.Path)
 	}
 }
