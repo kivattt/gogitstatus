@@ -1,0 +1,2 @@
+tests-statusraw/1_missing_index/files/file_a
+tests-statusraw/1_missing_index/files/file_b
