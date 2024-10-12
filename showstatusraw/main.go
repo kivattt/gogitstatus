@@ -25,6 +25,6 @@ func main() {
 	}
 
 	for _, e := range paths {
-		fmt.Println(e)
+		fmt.Println(gogitstatus.WhatChangedToString(e.WhatChanged), e.Path)
 	}
 }

@@ -208,6 +208,34 @@ const (
 	TYPE_CHANGED              = 0x0040
 )
 
+func WhatChangedToString(whatChanged WhatChanged) string {
+	var masksMatched []string
+
+	if whatChanged&MTIME_CHANGED != 0 {
+		masksMatched = append(masksMatched, "MTIME_CHANGED")
+	}
+	if whatChanged&CTIME_CHANGED != 0 {
+		masksMatched = append(masksMatched, "CTIME_CHANGED")
+	}
+	if whatChanged&OWNER_CHANGED != 0 {
+		masksMatched = append(masksMatched, "OWNER_CHANGED")
+	}
+	if whatChanged&MODE_CHANGED != 0 {
+		masksMatched = append(masksMatched, "MODE_CHANGED")
+	}
+	if whatChanged&INODE_CHANGED != 0 {
+		masksMatched = append(masksMatched, "INODE_CHANGED")
+	}
+	if whatChanged&DATA_CHANGED != 0 {
+		masksMatched = append(masksMatched, "DATA_CHANGED")
+	}
+	if whatChanged&TYPE_CHANGED != 0 {
+		masksMatched = append(masksMatched, "TYPE_CHANGED")
+	}
+
+	return strings.Join(masksMatched, ",")
+}
+
 const OBJECT_TYPE_MASK = 0b1111 << 12
 
 const REGULAR_FILE = 0b1000 << 12
@@ -250,8 +278,13 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 	return whatChanged
 }
 
+type ChangedFile struct {
+	Path        string
+	WhatChanged WhatChanged
+}
+
 // Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
-func Status(path string) ([]string, error) {
+func Status(path string) ([]ChangedFile, error) {
 	dotGitPath := filepath.Join(path, ".git")
 	stat, err := os.Stat(dotGitPath)
 	if err != nil || !stat.IsDir() {
@@ -262,7 +295,7 @@ func Status(path string) ([]string, error) {
 }
 
 // Does not check if path is a valid git repository
-func StatusRaw(path string, gitIndexPath string) ([]string, error) {
+func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 	_, err := os.Stat(gitIndexPath)
 	// If git index file is missing, all files are unstaged/untracked
 	if err != nil {
@@ -271,10 +304,11 @@ func StatusRaw(path string, gitIndexPath string) ([]string, error) {
 			return nil, err
 		}
 
-		var paths []string
+		var paths []ChangedFile
 		for _, e := range entries {
 			if !ignoreEntry(e) {
-				paths = append(paths, filepath.Join(path, e.Name()))
+				paths = append(paths, ChangedFile{Path: filepath.Join(path, e.Name())})
+				//				paths = append(paths, ChangedFilefilepath.Join(path, e.Name()))
 			}
 		}
 
@@ -291,7 +325,7 @@ func StatusRaw(path string, gitIndexPath string) ([]string, error) {
 		return nil, errors.New("Path does not exist: " + path)
 	}
 
-	var paths []string
+	var paths []ChangedFile
 	// Accumulate all not-ignored paths
 	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if ignoreEntry(d) {
@@ -302,7 +336,7 @@ func StatusRaw(path string, gitIndexPath string) ([]string, error) {
 			return nil
 		}
 
-		paths = append(paths, filePath)
+		paths = append(paths, ChangedFile{Path: filePath})
 		return nil
 	})
 
@@ -311,15 +345,21 @@ func StatusRaw(path string, gitIndexPath string) ([]string, error) {
 		thePath := filepath.Join(path, entry.Path)
 		stat, err := os.Lstat(thePath)
 
+		pathFound := slices.IndexFunc(paths, func(e ChangedFile) bool {
+			return e.Path == thePath
+		})
+
 		whatChanged := fileChanged(entry, thePath, stat)
 
 		if err != nil || whatChanged == 0 {
-			pathFound := slices.Index(paths, thePath)
+			//pathFound := slices.Index(paths, thePath)
 			if pathFound == -1 {
 				continue
 			}
 
 			paths = slices.Delete(paths, pathFound, pathFound+1)
+		} else {
+			paths[pathFound].WhatChanged = whatChanged
 		}
 	}
 

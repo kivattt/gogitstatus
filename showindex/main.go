@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"gogitstatus"
+	"io/fs"
 	"os"
 	"strconv"
 )
@@ -25,6 +26,6 @@ func main() {
 	}
 
 	for _, e := range entries {
-		fmt.Println(strconv.FormatInt(int64(e.Mode&0b111111111), 8), hex.EncodeToString(e.Hash), e.Path)
+		fmt.Println(strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8), hex.EncodeToString(e.Hash), e.Path)
 	}
 }
