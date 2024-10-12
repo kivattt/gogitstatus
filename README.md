@@ -1,10 +1,9 @@
-To test the functionality of `gogitstatus.Status()`, run the showstatus program:
+To test the functionality of `gogitstatus.StatusRaw()`, run the showstatusraw program:
 ```console
-cd showstatus
+cd showstatusraw
 go build
-./showstatus git-repository
+./showstatusraw files index
 ```
-An example Git repository has been provided in `showindex/git-repository`
 
 To test the functionality of `gogitstatus.ParseIndex()`, run the showindex program:
 ```console

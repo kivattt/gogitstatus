@@ -135,8 +135,8 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	return entries, nil
 }
 
-func ignoreEntry(entry fs.DirEntry, dotGit string) bool {
-	if entry.Name() == dotGit {
+func ignoreEntry(entry fs.DirEntry) bool {
+	if entry.Name() == ".git" {
 		return true
 	}
 
@@ -181,27 +181,20 @@ func hashMatches(path string, hash []byte) bool {
 }
 
 // Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
-// The optional alternateDotGit parameter is for testing a local git repository without a ".git" directory, instead being named something else
-func Status(path string, alternateDotGit ...string) ([]string, error) {
-	if len(alternateDotGit) > 1 {
-		return nil, errors.New("Only 1 optional alternateDotGit argument allowed")
-	}
-
-	dotGit := ".git"
-	if len(alternateDotGit) == 1 {
-		dotGit = alternateDotGit[0]
-	}
-
-	gitPath := filepath.Join(path, dotGit)
-	indexPath := filepath.Join(path, dotGit, "index")
-
-	stat, err := os.Stat(gitPath)
+func Status(path string) ([]string, error) {
+	dotGitPath := filepath.Join(path, ".git")
+	stat, err := os.Stat(dotGitPath)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("Not a Git repository")
 	}
 
-	_, err = os.Stat(indexPath)
-	// If .git/index file is missing, all files are unstaged/untracked
+	return StatusRaw(path, filepath.Join(dotGitPath, "index"))
+}
+
+// Does not check if path is a valid git repository
+func StatusRaw(path string, gitIndexPath string) ([]string, error) {
+	_, err := os.Stat(gitIndexPath)
+	// If git index file is missing, all files are unstaged/untracked
 	if err != nil {
 		entries, err := os.ReadDir(path)
 		if err != nil {
@@ -210,20 +203,20 @@ func Status(path string, alternateDotGit ...string) ([]string, error) {
 
 		var paths []string
 		for _, e := range entries {
-			if !ignoreEntry(e, dotGit) {
-				paths = append(paths, e.Name())
+			if !ignoreEntry(e) {
+				paths = append(paths, filepath.Join(path, e.Name()))
 			}
 		}
 
 		return paths, nil
 	}
 
-	indexEntries, err := ParseGitIndex(indexPath)
+	indexEntries, err := ParseGitIndex(gitIndexPath)
 	if err != nil {
-		return nil, errors.New("Unable to read " + indexPath + ": " + err.Error())
+		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	stat, err = os.Stat(path)
+	stat, err := os.Stat(path)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("Path does not exist: " + path)
 	}
@@ -231,7 +224,7 @@ func Status(path string, alternateDotGit ...string) ([]string, error) {
 	var paths []string
 	// Accumulate all not-ignored paths
 	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
-		if ignoreEntry(d, dotGit) {
+		if ignoreEntry(d) {
 			return filepath.SkipDir
 		}
 
