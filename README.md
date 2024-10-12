@@ -13,6 +13,10 @@ go build
 ```
 An example Git index file has been provided in `showindex/index`
 
+## Git Index file format resources
+https://git-scm.com/docs/index-format (a little confusing)\
+https://github.com/git/git/blob/master/read-cache.c
+
 ## TODO
 - Respect .gitignore
 - Support SHA-256

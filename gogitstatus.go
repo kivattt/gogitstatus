@@ -17,6 +17,7 @@ import (
 
 // A small subset of a Git index entry, only the relative path and 20-byte SHA-1 hash data
 type GitIndexEntry struct {
+	Mode uint32
 	Path string
 	Hash []byte // 20 bytes for the standard SHA-1
 }
@@ -104,21 +105,35 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
+		// Seek to 32-bit mode
+		_, err := file.Seek(24, 1) // 192 bits
+		if err != nil {
+			return nil, errors.New("Invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+		}
+
+		// Read 32-bit mode
+		bytes := make([]byte, 4) // 32 bits
+		_, err = io.ReadFull(file, bytes)
+		if err != nil {
+			return nil, errors.New("Invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+		}
+		entries[entryIndex].Mode = binary.BigEndian.Uint32(bytes)
+
 		// Seek to "object name" (hash data)
-		_, err := file.Seek(40, 1)
+		_, err = file.Seek(12, 1) // 96 bits
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		// Read hash data
-		entries[entryIndex].Hash = make([]byte, 20)
+		entries[entryIndex].Hash = make([]byte, 20) // 160 bits
 		_, err = io.ReadFull(file, entries[entryIndex].Hash)
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
 
 		// Seek to entry path name
-		_, err = file.Seek(2, 1)
+		_, err = file.Seek(2, 1) // 16 bits
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to seek to path name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
@@ -180,6 +195,60 @@ func hashMatches(path string, hash []byte) bool {
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }
 
+type WhatChanged int
+const (
+	// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/statinfo.h#L35
+	MTIME_CHANGED WhatChanged = 0x0001
+	CTIME_CHANGED = 0x0002
+	OWNER_CHANGED = 0x0004
+	MODE_CHANGED = 0x0008
+	INODE_CHANGED = 0x0010 // Use or not?
+	DATA_CHANGED = 0x0020
+	TYPE_CHANGED = 0x0040
+)
+
+const OBJECT_TYPE_MASK = 0b1111 << 12
+
+const REGULAR_FILE  = 0b1000 << 12
+const SYMBOLIC_LINK = 0b1010 << 12
+const GITLINK       = 0b1110 << 12
+
+// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L307
+func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) WhatChanged {
+	var whatChanged WhatChanged
+
+	switch entry.Mode & OBJECT_TYPE_MASK {
+	case REGULAR_FILE:
+		if !stat.Mode().IsRegular() {
+			whatChanged |= TYPE_CHANGED
+		}
+
+		// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L317
+		if fs.FileMode(entry.Mode) & fs.ModePerm & 0100 != stat.Mode() & fs.ModePerm & 0100 {
+			whatChanged |= MODE_CHANGED
+		}
+	case SYMBOLIC_LINK:
+		if stat.Mode() & os.ModeSymlink == 0 /*|| !stat.Mode().IsRegular()*/ {
+			whatChanged |= TYPE_CHANGED
+		}
+	case GITLINK:
+		if !stat.IsDir() {
+			whatChanged |= TYPE_CHANGED
+		}
+		return whatChanged
+	default:
+		panic("Unknown git index entry mode:" + strconv.FormatInt(int64(entry.Mode), 10))
+	}
+
+	// TODO: Store mtime and ctime to check for change here, as is done in the match_stat_data() function in Git
+
+	if !hashMatches(entryFullPath, entry.Hash) {
+		whatChanged |= DATA_CHANGED
+	}
+
+	return whatChanged
+}
+
 // Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func Status(path string) ([]string, error) {
 	dotGitPath := filepath.Join(path, ".git")
@@ -236,9 +305,13 @@ func StatusRaw(path string, gitIndexPath string) ([]string, error) {
 		return nil
 	})
 
+	// Filter unchanged files
 	for _, entry := range indexEntries {
-		if hashMatches(filepath.Join(path, entry.Path), entry.Hash) {
-			pathFound := slices.Index(paths, filepath.Join(path, entry.Path))
+		thePath := filepath.Join(path, entry.Path)
+		stat, err := os.Lstat(thePath)
+
+		if err != nil || fileChanged(entry, thePath, stat) == 0 {
+			pathFound := slices.Index(paths, thePath)
 			if pathFound == -1 {
 				continue
 			}
