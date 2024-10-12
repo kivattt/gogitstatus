@@ -29,9 +29,9 @@ func TestStatusRaw(t *testing.T) {
 
 	fmt.Println("\x1b[1;30mTestStatusRaw:\x1b[0m")
 
-	printPaths := func(entries []string) {
+	printChangedFiles := func(entries []ChangedFile) {
 		for _, e := range entries {
-			fmt.Println("    " + e)
+			fmt.Println("    " + WhatChangedToString(e.WhatChanged) + " " + e.Path)
 		}
 	}
 
@@ -46,7 +46,7 @@ func TestStatusRaw(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var expectedPaths []string
+		var expectedChangedFiles []ChangedFile
 		var expectedError error = nil
 
 		scanner := bufio.NewScanner(file)
@@ -57,10 +57,22 @@ func TestStatusRaw(t *testing.T) {
 				expectedError = errors.New(line[len("Error text:"):])
 				break
 			}
-			expectedPaths = append(expectedPaths, filepath.Join(filesPath, line))
+
+			split := strings.Split(line, " ")
+			var whatChangedText string
+			var pathText string
+			if len(split) < 2 {
+				whatChangedText = ""
+				pathText = split[0]
+			} else {
+				whatChangedText = split[0]
+				pathText = split[1]
+			}
+
+			expectedChangedFiles = append(expectedChangedFiles, ChangedFile{Path: filepath.Join(filesPath, pathText), WhatChanged: StringToWhatChanged(whatChangedText)})
 		}
 
-		paths, err := StatusRaw(filesPath, indexPath)
+		changedFiles, err := StatusRaw(filesPath, indexPath)
 		if expectedError == nil && err != nil {
 			printRed("Failed\n")
 			t.Fatal("expected no error, but got: " + err.Error())
@@ -73,13 +85,13 @@ func TestStatusRaw(t *testing.T) {
 			}
 		}
 
-		if !reflect.DeepEqual(paths, expectedPaths) {
+		if !reflect.DeepEqual(changedFiles, expectedChangedFiles) {
 			printRed("Failed\n")
 
 			fmt.Println("Expected entries:")
-			printPaths(expectedPaths)
+			printChangedFiles(expectedChangedFiles)
 			fmt.Println("But got:")
-			printPaths(paths)
+			printChangedFiles(changedFiles)
 			t.Fatal("See above ^")
 		}
 

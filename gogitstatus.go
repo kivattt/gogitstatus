@@ -208,32 +208,45 @@ const (
 	TYPE_CHANGED              = 0x0040
 )
 
+var whatChangedToStringMap = map[WhatChanged]string{
+	MTIME_CHANGED: "MTIME_CHANGED",
+	CTIME_CHANGED: "CTIME_CHANGED",
+	OWNER_CHANGED: "OWNER_CHANGED",
+	MODE_CHANGED:  "MODE_CHANGED",
+	INODE_CHANGED: "INODE_CHANGED",
+	DATA_CHANGED:  "DATA_CHANGED",
+	TYPE_CHANGED:  "TYPE_CHANGED",
+}
+
+var stringToWhatChangedMap = map[string]WhatChanged{
+	"MTIME_CHANGED": MTIME_CHANGED,
+	"CTIME_CHANGED": CTIME_CHANGED,
+	"OWNER_CHANGED": OWNER_CHANGED,
+	"MODE_CHANGED":  MODE_CHANGED,
+	"INODE_CHANGED": INODE_CHANGED,
+	"DATA_CHANGED":  DATA_CHANGED,
+	"TYPE_CHANGED":  TYPE_CHANGED,
+}
+
 func WhatChangedToString(whatChanged WhatChanged) string {
 	var masksMatched []string
 
-	if whatChanged&MTIME_CHANGED != 0 {
-		masksMatched = append(masksMatched, "MTIME_CHANGED")
-	}
-	if whatChanged&CTIME_CHANGED != 0 {
-		masksMatched = append(masksMatched, "CTIME_CHANGED")
-	}
-	if whatChanged&OWNER_CHANGED != 0 {
-		masksMatched = append(masksMatched, "OWNER_CHANGED")
-	}
-	if whatChanged&MODE_CHANGED != 0 {
-		masksMatched = append(masksMatched, "MODE_CHANGED")
-	}
-	if whatChanged&INODE_CHANGED != 0 {
-		masksMatched = append(masksMatched, "INODE_CHANGED")
-	}
-	if whatChanged&DATA_CHANGED != 0 {
-		masksMatched = append(masksMatched, "DATA_CHANGED")
-	}
-	if whatChanged&TYPE_CHANGED != 0 {
-		masksMatched = append(masksMatched, "TYPE_CHANGED")
+	for k, v := range whatChangedToStringMap {
+		if whatChanged&k != 0 {
+			masksMatched = append(masksMatched, v)
+		}
 	}
 
 	return strings.Join(masksMatched, ",")
+}
+
+func StringToWhatChanged(text string) WhatChanged {
+	split := strings.Split(text, ",")
+	var ret WhatChanged
+	for _, e := range split {
+		ret |= stringToWhatChangedMap[e]
+	}
+	return ret
 }
 
 const OBJECT_TYPE_MASK = 0b1111 << 12
