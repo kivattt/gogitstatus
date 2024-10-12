@@ -310,7 +310,9 @@ func StatusRaw(path string, gitIndexPath string) ([]string, error) {
 		thePath := filepath.Join(path, entry.Path)
 		stat, err := os.Lstat(thePath)
 
-		if err != nil || fileChanged(entry, thePath, stat) == 0 {
+		whatChanged := fileChanged(entry, thePath, stat)
+
+		if err != nil || whatChanged == 0 {
 			pathFound := slices.Index(paths, thePath)
 			if pathFound == -1 {
 				continue
