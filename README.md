@@ -1,3 +1,5 @@
+This is a library for finding unstaged/uncommited files in local Git repositories using zero dependencies, only the Go standard library
+
 To try out `gogitstatus.StatusRaw()`, run the showstatusraw program:
 ```console
 cd showstatusraw
