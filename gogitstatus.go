@@ -293,7 +293,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 			whatChanged |= MODE_CHANGED
 		}
 	case SYMBOLIC_LINK:
-		if stat.Mode()&os.ModeSymlink == 0 /*|| !stat.Mode().IsRegular()*/ {
+		if stat.Mode()&os.ModeSymlink == 0 /*&& !stat.Mode().IsRegular()*/ {
 			whatChanged |= TYPE_CHANGED
 		}
 	case GITLINK:
