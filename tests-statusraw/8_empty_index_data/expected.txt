@@ -1,0 +1,4 @@
+directory/file
+directory/symlink
+file
+symlink
