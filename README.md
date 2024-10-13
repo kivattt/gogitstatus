@@ -1,17 +1,18 @@
-To test the functionality of `gogitstatus.StatusRaw()`, run the showstatusraw program:
+To try out `gogitstatus.StatusRaw()`, run the showstatusraw program:
 ```console
 cd showstatusraw
 go build
 ./showstatusraw files index
 ```
 
-To test the functionality of `gogitstatus.ParseIndex()`, run the showindex program:
+To try out `gogitstatus.ParseIndex()`, run the showindex program:
 ```console
 cd showindex
 go build
 ./showindex index
 ```
-An example Git index file has been provided in `showindex/index`
+
+Run `go test` to run all the tests
 
 ## Git Index file format resources
 https://git-scm.com/docs/index-format (a little confusing)\
