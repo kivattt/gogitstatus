@@ -35,6 +35,8 @@ func TestStatusRaw(t *testing.T) {
 		}
 	}
 
+	testFailed := false
+
 	for _, test := range tests {
 		filesPath := filepath.Join(testsPath, test.Name(), "files")
 		indexPath := filepath.Join(testsPath, test.Name(), "index")
@@ -43,7 +45,9 @@ func TestStatusRaw(t *testing.T) {
 
 		file, err := os.Open(expectedPath)
 		if err != nil {
-			t.Fatal(err)
+			fmt.Println(err)
+			testFailed = true
+			continue
 		}
 
 		var expectedChangedFiles []ChangedFile
@@ -75,13 +79,17 @@ func TestStatusRaw(t *testing.T) {
 		changedFiles, err := StatusRaw(filesPath, indexPath)
 		if expectedError == nil && err != nil {
 			printRed("Failed\n")
-			t.Fatal("expected no error, but got: " + err.Error())
+			fmt.Println("expected no error, but got: " + err.Error())
+			testFailed = true
+			continue
 		}
 
 		if err != nil && expectedError != nil {
 			if err.Error() != expectedError.Error() {
 				printRed("Failed\n")
-				t.Fatal("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+				fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+				testFailed = true
+				continue
 			}
 		}
 
@@ -92,10 +100,15 @@ func TestStatusRaw(t *testing.T) {
 			printChangedFiles(expectedChangedFiles)
 			fmt.Println("But got:")
 			printChangedFiles(changedFiles)
-			t.Fatal("See above ^")
+			testFailed = true
+			continue
 		}
 
 		printGreen("Success\n")
+	}
+
+	if testFailed {
+		t.Fatal("See above ^")
 	}
 }
 
@@ -133,10 +146,14 @@ func TestParseGitIndex(t *testing.T) {
 		return true
 	}
 
+	testFailed := false
+
 	for _, version := range tests {
 		versionTests, err := os.ReadDir(filepath.Join(testsPath, version.Name()))
 		if err != nil {
-			t.Fatal(err)
+			fmt.Println(err)
+			testFailed = true
+			continue
 		}
 
 		for _, versionTest := range versionTests {
@@ -147,7 +164,9 @@ func TestParseGitIndex(t *testing.T) {
 			file, err := os.Open(expectedPath)
 			if err != nil {
 				printRed("Failed\n")
-				t.Fatal(err)
+				fmt.Println(err)
+				testFailed = true
+				continue
 			}
 
 			expectedEntries := []GitIndexEntry{}
@@ -168,7 +187,9 @@ func TestParseGitIndex(t *testing.T) {
 				sha1HashBytes, err := hex.DecodeString(sha1HashHex)
 				if err != nil {
 					printRed("Failed\n")
-					t.Fatal(err)
+					fmt.Println(err)
+					testFailed = true
+					continue
 				}
 
 				expectedEntries = append(expectedEntries, GitIndexEntry{Path: pathName, Hash: sha1HashBytes})
@@ -178,13 +199,17 @@ func TestParseGitIndex(t *testing.T) {
 			entries, err := ParseGitIndex(indexPath)
 			if expectedError == nil && err != nil {
 				printRed("Failed\n")
-				t.Fatal("expected no error, but got: " + err.Error())
+				fmt.Println("expected no error, but got: " + err.Error())
+				testFailed = true
+				continue
 			}
 
 			if err != nil && expectedError != nil {
 				if err.Error() != expectedError.Error() {
 					printRed("Failed\n")
-					t.Fatal("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+					fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+					testFailed = true
+					continue
 				}
 			}
 
@@ -195,10 +220,15 @@ func TestParseGitIndex(t *testing.T) {
 				printEntries(expectedEntries)
 				fmt.Println("But got:")
 				printEntries(entries)
-				t.Fatal("See above ^")
+				testFailed = true
+				continue
 			}
 
 			printGreen("Success\n")
 		}
+	}
+
+	if testFailed {
+		t.Fatal("See above ^")
 	}
 }
