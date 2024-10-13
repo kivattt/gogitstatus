@@ -255,8 +255,13 @@ const REGULAR_FILE = 0b1000 << 12
 const SYMBOLIC_LINK = 0b1010 << 12
 const GITLINK = 0b1110 << 12
 
+// If you pass this a nil value for stat, it will return 0
 // https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L307
 func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) WhatChanged {
+	if stat == nil {
+		return 0 // Deleted file
+	}
+
 	var whatChanged WhatChanged
 
 	switch entry.Mode & OBJECT_TYPE_MASK {
@@ -321,7 +326,6 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 		for _, e := range entries {
 			if !ignoreEntry(e) {
 				paths = append(paths, ChangedFile{Path: filepath.Join(path, e.Name())})
-				//				paths = append(paths, ChangedFilefilepath.Join(path, e.Name()))
 			}
 		}
 
@@ -356,23 +360,27 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 	// Filter unchanged files
 	for _, entry := range indexEntries {
 		thePath := filepath.Join(path, entry.Path)
-		stat, err := os.Lstat(thePath)
 
 		pathFound := slices.IndexFunc(paths, func(e ChangedFile) bool {
 			return e.Path == thePath
 		})
 
+		stat, err := os.Lstat(thePath)
+		if err != nil {
+			stat = nil // Just to be sure
+		}
+
 		whatChanged := fileChanged(entry, thePath, stat)
 
-		if err != nil || whatChanged == 0 {
-			//pathFound := slices.Index(paths, thePath)
-			if pathFound == -1 {
-				continue
-			}
-
-			paths = slices.Delete(paths, pathFound, pathFound+1)
+		if pathFound == -1 {
+			// Since we only add the already existing files previously, we need to add an entry if it's missing
+			paths = append(paths, ChangedFile{Path: thePath})
 		} else {
-			paths[pathFound].WhatChanged = whatChanged
+			if err != nil || whatChanged == 0 {
+				paths = slices.Delete(paths, pathFound, pathFound+1)
+			} else {
+				paths[pathFound].WhatChanged = whatChanged
+			}
 		}
 	}
 
