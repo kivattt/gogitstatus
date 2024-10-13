@@ -85,7 +85,7 @@ func TestStatusRaw(t *testing.T) {
 			}
 		}
 
-		if !reflect.DeepEqual(changedFiles, expectedChangedFiles) {
+		if !(len(changedFiles) == 0 && len(expectedChangedFiles) == 0) && !reflect.DeepEqual(changedFiles, expectedChangedFiles) {
 			printRed("Failed\n")
 
 			fmt.Println("Expected entries:")

@@ -159,13 +159,31 @@ func ignoreEntry(entry fs.DirEntry) bool {
 }
 
 func hashMatches(path string, hash []byte) bool {
+	stat, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+
+	// Symlinks are hashed with the target path, not the data of the target file
+	if stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
+		newHash := sha1.New()
+		targetPath, err := os.Readlink(path)
+		if err != nil {
+			return false
+		}
+
+		newHash.Write(append([]byte("blob "+strconv.Itoa(len(targetPath))), 0))
+		newHash.Write([]byte(targetPath))
+		return reflect.DeepEqual(hash, newHash.Sum(nil))
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return false
 	}
 	defer file.Close()
 
-	stat, err := os.Stat(path)
+	stat, err = os.Stat(path)
 	if err != nil {
 		return false
 	}
