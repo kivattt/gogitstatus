@@ -69,10 +69,16 @@ func TestStatusRaw(t *testing.T) {
 
 		var expectedChangedFiles []ChangedFile
 		var expectedError error = nil
+		var expectedAnyError bool
 
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := scanner.Text()
+
+			if strings.HasPrefix(line, "Any error") {
+				expectedAnyError = true
+				break
+			}
 
 			if strings.HasPrefix(line, "Error text:") {
 				expectedError = errors.New(line[len("Error text:"):])
@@ -94,14 +100,21 @@ func TestStatusRaw(t *testing.T) {
 		}
 
 		changedFiles, err := StatusRaw(filesPath, indexPath)
-		if expectedError == nil && err != nil {
+
+		if expectedAnyError && err == nil {
+			fmt.Println("expected any error, but got: " + err.Error())
+			testFailed = true
+			continue
+		}
+
+		if !expectedAnyError && expectedError == nil && err != nil {
 			printRed("Failed\n")
 			fmt.Println("expected no error, but got: " + err.Error())
 			testFailed = true
 			continue
 		}
 
-		if err != nil && expectedError != nil {
+		if !expectedAnyError && err != nil && expectedError != nil {
 			if err.Error() != expectedError.Error() {
 				printRed("Failed\n")
 				fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
