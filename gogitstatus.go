@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -165,7 +166,8 @@ func hashMatches(path string, hash []byte) bool {
 	}
 
 	// Symlinks are hashed with the target path, not the data of the target file
-	if stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
+	// On Windows, symlinks are stored as regular files, so we handle them as such later
+	if runtime.GOOS != "windows" && stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
 		newHash := sha1.New()
 		targetPath, err := os.Readlink(path)
 		if err != nil {
@@ -293,7 +295,8 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 			whatChanged |= MODE_CHANGED
 		}
 	case SYMBOLIC_LINK:
-		if stat.Mode()&os.ModeSymlink == 0 /*&& !stat.Mode().IsRegular()*/ {
+		// Symbolic links are stored as regular files on Windows
+		if runtime.GOOS != "windows" && stat.Mode()&os.ModeSymlink == 0 /*&& !stat.Mode().IsRegular()*/ {
 			whatChanged |= TYPE_CHANGED
 		}
 	case GITLINK:
