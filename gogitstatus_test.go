@@ -65,7 +65,7 @@ func TestStatusRaw(t *testing.T) {
 				expectedPath = expectedWindowsPath
 			}
 		}
-		fmt.Print("Test file " + expectedPath + ": ")
+		fmt.Print("Test " + expectedPath + ": ")
 
 		file, err := os.Open(expectedPath)
 		if err != nil {
@@ -196,7 +196,7 @@ func TestParseGitIndex(t *testing.T) {
 		for _, versionTest := range versionTests {
 			indexPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "index")
 			expectedPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "expected.txt")
-			fmt.Print("Test file " + expectedPath + ": ")
+			fmt.Print("Test " + expectedPath + ": ")
 
 			file, err := os.Open(expectedPath)
 			if err != nil {
