@@ -26,6 +26,6 @@ func main() {
 	}
 
 	for _, e := range entries {
-		fmt.Println(strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8), hex.EncodeToString(e.Hash), e.Path)
+		fmt.Println(strconv.FormatInt(int64(e.Mode&gogitstatus.OBJECT_TYPE_MASK>>13), 2) + strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8), hex.EncodeToString(e.Hash), e.Path)
 	}
 }

@@ -291,7 +291,8 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 		}
 
 		// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L317
-		if fs.FileMode(entry.Mode)&fs.ModePerm&0100 != stat.Mode()&fs.ModePerm&0100 {
+		// Windows only stores the mode permission bits in .git/index, not on disk
+		if runtime.GOOS != "windows" && fs.FileMode(entry.Mode)&fs.ModePerm&0100 != stat.Mode()&fs.ModePerm&0100 {
 			whatChanged |= MODE_CHANGED
 		}
 	case SYMBOLIC_LINK:
