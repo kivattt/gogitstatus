@@ -1,4 +1,6 @@
+## This library is still in development, and currently unfit for use
 This is a library for finding unstaged/untracked files in local Git repositories using zero dependencies, only the Go standard library
+Tested for Linux, FreeBSD and Windows
 
 To try out `gogitstatus.StatusRaw()`, run the showstatusraw program:
 ```console
