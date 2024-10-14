@@ -157,7 +157,7 @@ func TestParseGitIndex(t *testing.T) {
 	}
 
 	fmt.Println()
-	printGray("TestParseGitIndex\n")
+	printGray("TestParseGitIndex:\n")
 
 	printEntries := func(entries []GitIndexEntry) {
 		for _, e := range entries {
