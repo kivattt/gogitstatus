@@ -8,16 +8,33 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func printRed(text string) {
-	fmt.Print("\x1b[31m" + text + "\x1b[0m")
+	if runtime.GOOS == "windows" {
+		fmt.Print(text)
+	} else {
+		fmt.Print("\x1b[31m" + text + "\x1b[0m")
+	}
 }
 
 func printGreen(text string) {
-	fmt.Print("\x1b[32m" + text + "\x1b[0m")
+	if runtime.GOOS == "windows" {
+		fmt.Print(text)
+	} else {
+		fmt.Print("\x1b[32m" + text + "\x1b[0m")
+	}
+}
+
+func printGray(text string) {
+	if runtime.GOOS == "windows" {
+		fmt.Print(text)
+	} else {
+		fmt.Print("\x1b[1;30m" + text + "\x1b[0m")
+	}
 }
 
 func TestStatusRaw(t *testing.T) {
@@ -27,7 +44,7 @@ func TestStatusRaw(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println("\x1b[1;30mTestStatusRaw:\x1b[0m")
+	printGray("TestStatusRaw:\n")
 
 	printChangedFiles := func(entries []ChangedFile) {
 		for _, e := range entries {
@@ -120,7 +137,7 @@ func TestParseGitIndex(t *testing.T) {
 	}
 
 	fmt.Println()
-	fmt.Println("\x1b[1;30mTestParseGitIndex:\x1b[0m")
+	printGray("TestParseGitIndex\n")
 
 	printEntries := func(entries []GitIndexEntry) {
 		for _, e := range entries {
