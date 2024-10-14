@@ -58,6 +58,13 @@ func TestStatusRaw(t *testing.T) {
 		filesPath := filepath.Join(testsPath, test.Name(), "files")
 		indexPath := filepath.Join(testsPath, test.Name(), "index")
 		expectedPath := filepath.Join(testsPath, test.Name(), "expected.txt")
+		if runtime.GOOS == "windows" {
+			expectedWindowsPath := filepath.Join(testsPath, test.Name(), "expected_windows.txt")
+			_, err := os.Stat(expectedWindowsPath)
+			if err == nil {
+				expectedPath = expectedWindowsPath
+			}
+		}
 		fmt.Print("Test file " + expectedPath + ": ")
 
 		file, err := os.Open(expectedPath)
