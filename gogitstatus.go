@@ -333,7 +333,11 @@ func AccumulatePathsNotIgnored(path string) ([]ChangedFile, error) {
 
 		// git status seems to ignore any file/directory named ".git", regardless of its parent directory
 		if d.Name() == ".git" {
-			return filepath.SkipDir
+			if d.IsDir() {
+				return filepath.SkipDir
+			} else {
+				return nil
+			}
 		}
 
 		if d.IsDir() {
