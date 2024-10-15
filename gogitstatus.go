@@ -323,7 +323,7 @@ type ChangedFile struct {
 	WhatChanged WhatChanged
 }
 
-// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files named ".git" and those ignored by .gitignore
+// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files named ".git" (TODO: and those ignored by .gitignore)
 func AccumulatePathsNotIgnored(path string) ([]ChangedFile, error) {
 	var paths []ChangedFile
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
