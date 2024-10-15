@@ -323,6 +323,34 @@ type ChangedFile struct {
 	WhatChanged WhatChanged
 }
 
+// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files named ".git" and those ignored by .gitignore
+func AccumulatePathsNotIgnored(path string) ([]ChangedFile, error) {
+	var paths []ChangedFile
+	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		// git status seems to ignore any file/directory named ".git", regardless of its parent directory
+		if d.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		if d.IsDir() {
+			return nil
+		}
+
+		paths = append(paths, ChangedFile{Path: filePath})
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return paths, nil
+}
+
 // Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func Status(path string) ([]ChangedFile, error) {
 	dotGitPath := filepath.Join(path, ".git")
@@ -336,22 +364,15 @@ func Status(path string) ([]ChangedFile, error) {
 
 // Does not check if path is a valid git repository
 func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
-	_, err := os.Stat(gitIndexPath)
+	stat, err := os.Stat(path)
+	if err != nil || !stat.IsDir() {
+		return nil, errors.New("Path does not exist: " + path)
+	}
+
 	// If git index file is missing, all files are unstaged/untracked
+	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return nil, err
-		}
-
-		var paths []ChangedFile
-		for _, e := range entries {
-			if !ignoreEntry(e) {
-				paths = append(paths, ChangedFile{Path: filepath.Join(path, e.Name())})
-			}
-		}
-
-		return paths, nil
+		return AccumulatePathsNotIgnored(path)
 	}
 
 	indexEntries, err := ParseGitIndex(gitIndexPath)
@@ -359,25 +380,7 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	stat, err := os.Stat(path)
-	if err != nil || !stat.IsDir() {
-		return nil, errors.New("Path does not exist: " + path)
-	}
-
-	var paths []ChangedFile
-	// Accumulate all not-ignored paths
-	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
-		if ignoreEntry(d) {
-			return filepath.SkipDir
-		}
-
-		if d.IsDir() {
-			return nil
-		}
-
-		paths = append(paths, ChangedFile{Path: filePath})
-		return nil
-	})
+	paths, err := AccumulatePathsNotIgnored(path)
 
 	// Filter unchanged files
 	for _, entry := range indexEntries {

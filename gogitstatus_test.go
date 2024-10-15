@@ -109,7 +109,7 @@ func TestStatusRaw(t *testing.T) {
 		changedFiles, err := StatusRaw(filesPath, indexPath)
 
 		if expectedAnyError && err == nil {
-			fmt.Println("expected any error, but got: " + err.Error())
+			fmt.Println("expected any error, but got nil")
 			testFailed = true
 			continue
 		}
