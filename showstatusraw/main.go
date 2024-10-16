@@ -17,7 +17,7 @@ func main() {
 	path := args[1]
 	indexPath := args[2]
 
-	paths, err := gogitstatus.StatusRaw(path, indexPath)
+	paths, err := gogitstatus.StatusRaw(path, indexPath, true)
 
 	if err != nil {
 		fmt.Println("error:", err)

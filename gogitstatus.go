@@ -14,6 +14,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/sabhiram/go-gitignore"
 )
 
 // A small subset of a Git index entry, only 32-bit mode and 20-byte SHA-1 hash data
@@ -317,8 +319,8 @@ type ChangedFile struct {
 	Untracked   bool // true = Untracked, false = Unstaged
 }
 
-// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files named ".git" (TODO: and those ignored by .gitignore)
-func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry) ([]ChangedFile, error) {
+// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git"
+func AccumulatePaths(path string, indexEntries map[string]GitIndexEntry) ([]ChangedFile, error) {
 	var paths []ChangedFile
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -359,11 +361,11 @@ func Status(path string) ([]ChangedFile, error) {
 		return nil, errors.New("Not a Git repository")
 	}
 
-	return StatusRaw(path, filepath.Join(dotGitPath, "index"))
+	return StatusRaw(path, filepath.Join(dotGitPath, "index"), true)
 }
 
 // Does not check if path is a valid git repository
-func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
+func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]ChangedFile, error) {
 	stat, err := os.Stat(path)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("Path does not exist: " + path)
@@ -372,7 +374,7 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return AccumulatePathsNotIgnored(path, make(map[string]GitIndexEntry))
+		return AccumulatePaths(path, make(map[string]GitIndexEntry))
 	}
 
 	indexEntries, err := ParseGitIndex(gitIndexPath)
@@ -380,7 +382,19 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	paths, err := AccumulatePathsNotIgnored(path, indexEntries)
+	paths, err := AccumulatePaths(path, indexEntries)
+
+	// Filter untracked ignored files
+	if respectGitIgnore {
+		// FIXME: Use exclude files priority https://git-scm.com/docs/gitignore
+		ignore, err := ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
+		if err == nil {
+			paths = slices.DeleteFunc(paths, func(e ChangedFile) bool {
+				return e.Untracked && ignore.MatchesPath(e.Path)
+				//return ignore.MatchesPath(e.Path)
+			})
+		}
+	}
 
 	// Filter unchanged files
 	for p, entry := range indexEntries {
@@ -405,8 +419,8 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 				paths[pathFound].Untracked = false
 			}
 		} else {
-			// Since we only add the already existing files previously, we need to add an entry if it's missing
-			paths = append(paths, ChangedFile{Path: thePath})
+			// Deleted files need to be added to the list since we previously only added files that already exist on the filesystem
+			paths = append(paths, ChangedFile{Path: thePath, Untracked: false})
 		}
 	}
 
