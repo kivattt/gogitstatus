@@ -151,14 +151,6 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	return entries, nil
 }
 
-func ignoreEntry(entry fs.DirEntry) bool {
-	if entry.Name() == ".git" {
-		return true
-	}
-
-	return false
-}
-
 func hashMatches(path string, hash []byte) bool {
 	stat, err := os.Lstat(path)
 	if err != nil {
@@ -166,7 +158,7 @@ func hashMatches(path string, hash []byte) bool {
 	}
 
 	// Symlinks are hashed with the target path, not the data of the target file
-	// On Windows, symlinks are stored as regular files, so we handle them as such later
+	// On Windows, symlinks are stored as regular files (with target path as the file data), so we handle them as such later
 	if runtime.GOOS != "windows" && stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
 		newHash := sha1.New()
 		targetPath, err := os.Readlink(path)
