@@ -1,4 +1,4 @@
-directory/file
-directory/symlink
-file
-symlink
+Untracked directory/file
+Untracked directory/symlink
+Untracked file
+Untracked symlink

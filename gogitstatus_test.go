@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -115,8 +116,14 @@ func TestStatusRaw(t *testing.T) {
 	printGray("TestStatusRaw:\n")
 
 	printChangedFiles := func(entries []ChangedFile) {
+		untracked2Str := func(b bool) string {
+			if b {
+				return "Untracked"
+			}
+			return "Tracked  "
+		}
 		for _, e := range entries {
-			fmt.Println("    " + WhatChangedToString(e.WhatChanged) + " " + e.Path)
+			fmt.Println("    " + untracked2Str(e.Untracked),  WhatChangedToString(e.WhatChanged) + " " + e.Path)
 		}
 	}
 
@@ -161,17 +168,25 @@ func TestStatusRaw(t *testing.T) {
 			}
 
 			split := strings.Split(line, " ")
+			var untracked bool
+			if split[0] == "Untracked" {
+				untracked = true
+			} else if split[0] == "Tracked" {
+				untracked = false
+			} else {
+				t.Fatal("Invalid test, first word should be one of: \"Untracked\", \"Tracked\", case matching")
+			}
 			var whatChangedText string
 			var pathText string
-			if len(split) < 2 {
+			if len(split) < 3 {
 				whatChangedText = ""
-				pathText = split[0]
-			} else {
-				whatChangedText = split[0]
 				pathText = split[1]
+			} else {
+				whatChangedText = split[1]
+				pathText = split[2]
 			}
 
-			expectedChangedFiles = append(expectedChangedFiles, ChangedFile{Path: filepath.Join(filesPath, pathText), WhatChanged: StringToWhatChanged(whatChangedText)})
+			expectedChangedFiles = append(expectedChangedFiles, ChangedFile{Path: filepath.Join(filesPath, pathText), WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked})
 		}
 
 		_, err = os.Stat(filesPath)
@@ -237,27 +252,28 @@ func TestParseGitIndex(t *testing.T) {
 	fmt.Println()
 	printGray("TestParseGitIndex:\n")
 
-	printEntries := func(entries []GitIndexEntry) {
-		for _, e := range entries {
-			fmt.Println("    "+hex.EncodeToString(e.Hash), e.Path)
+	printEntries := func(entries map[string]GitIndexEntry) {
+		for path, e := range entries {
+			fmt.Println("    "+ strconv.FormatUint(uint64(e.Mode), 8) , hex.EncodeToString(e.Hash), path)
 		}
 	}
 
-	gitIndexEntriesMatch := func(a, b []GitIndexEntry) bool {
+	gitIndexEntriesMatch := func(a, b map[string]GitIndexEntry) bool {
 		if len(a) != len(b) {
 			return false
 		}
 
-		for i := 0; i < len(a); i++ {
-			left, right := a[i], b[i]
-			if !reflect.DeepEqual(left.Hash, right.Hash) {
+		for k, v := range a {
+			if !reflect.DeepEqual(b[k].Hash, v.Hash) {
 				return false
 			}
 
-			if left.Path != right.Path {
+			// We don't test the mode
+			/*if b[k].Mode != v.Mode {
 				return false
-			}
+			}*/
 		}
+
 		return true
 	}
 
@@ -284,14 +300,14 @@ func TestParseGitIndex(t *testing.T) {
 				continue
 			}
 
-			expectedEntries := []GitIndexEntry{}
+			expectedEntries := make(map[string]GitIndexEntry)
 			var expectedError error = nil
 
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
 				line := scanner.Text()
 				if strings.HasPrefix(line, "Error text:") {
-					expectedEntries = []GitIndexEntry{}
+					expectedEntries = make(map[string]GitIndexEntry)
 					expectedError = errors.New(line[len("Error text:"):])
 					break
 				}
@@ -307,7 +323,7 @@ func TestParseGitIndex(t *testing.T) {
 					continue
 				}
 
-				expectedEntries = append(expectedEntries, GitIndexEntry{Path: pathName, Hash: sha1HashBytes})
+				expectedEntries[pathName] = GitIndexEntry{Hash: sha1HashBytes}
 			}
 			file.Close()
 

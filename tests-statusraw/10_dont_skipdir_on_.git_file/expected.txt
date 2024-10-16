@@ -1,2 +1,2 @@
-directory/file
-directory/file2
+Untracked directory/file
+Untracked directory/file2

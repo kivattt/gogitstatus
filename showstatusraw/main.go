@@ -24,7 +24,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	untracked2Str := func(b bool) string {
+		if b {
+			return "Untracked"
+		}
+		return "Tracked  "
+	}
+
 	for _, e := range paths {
-		fmt.Println(gogitstatus.WhatChangedToString(e.WhatChanged), e.Path)
+		whatChangedStr := gogitstatus.WhatChangedToString(e.WhatChanged)
+		if whatChangedStr != "" {
+			whatChangedStr += " "
+		}
+		fmt.Println(untracked2Str(e.Untracked), whatChangedStr + e.Path)
 	}
 }

@@ -1,2 +1,2 @@
-directory_unstaged/file.txt
-helloworld_unstaged.txt
+Untracked directory_unstaged/file.txt
+Untracked helloworld_unstaged.txt

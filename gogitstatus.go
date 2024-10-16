@@ -16,10 +16,10 @@ import (
 	"strings"
 )
 
-// A small subset of a Git index entry, only the relative path and 20-byte SHA-1 hash data
+// A small subset of a Git index entry, only 32-bit mode and 20-byte SHA-1 hash data
 type GitIndexEntry struct {
-	Mode uint32
-	Path string
+	Mode uint32 // Contains the file type and unix permission bits
+//	Path string
 	Hash []byte // 20 bytes for the standard SHA-1
 }
 
@@ -68,9 +68,9 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 	return ret.String(), nil
 }
 
+// Returns the relative paths mapping to the GitIndexEntry
 // Parses a Git Index file (version 2)
-// See file format: https://git-scm.com/docs/index-format
-func ParseGitIndex(path string) ([]GitIndexEntry, error) {
+func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -102,7 +102,7 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
-	entries := make([]GitIndexEntry, numEntries)
+	entries := make(map[string]GitIndexEntry)
 
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
@@ -118,7 +118,8 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
-		entries[entryIndex].Mode = binary.BigEndian.Uint32(bytes)
+
+		mode := binary.BigEndian.Uint32(bytes)
 
 		// Seek to "object name" (hash data)
 		_, err = file.Seek(12, 1) // 96 bits
@@ -127,8 +128,8 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 		}
 
 		// Read hash data
-		entries[entryIndex].Hash = make([]byte, 20) // 160 bits
-		_, err = io.ReadFull(file, entries[entryIndex].Hash)
+		hash := make([]byte, 20) // 160 bits
+		_, err = io.ReadFull(file, hash)
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
@@ -145,7 +146,7 @@ func ParseGitIndex(path string) ([]GitIndexEntry, error) {
 			return nil, err
 		}
 
-		entries[entryIndex].Path = pathName
+		entries[pathName] = GitIndexEntry{Mode: mode, Hash: hash}
 	}
 
 	return entries, nil
@@ -313,10 +314,11 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 type ChangedFile struct {
 	Path        string
 	WhatChanged WhatChanged
+	Untracked bool // true = Untracked, false = Unstaged
 }
 
 // Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files named ".git" (TODO: and those ignored by .gitignore)
-func AccumulatePathsNotIgnored(path string) ([]ChangedFile, error) {
+func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry) ([]ChangedFile, error) {
 	var paths []ChangedFile
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -336,7 +338,9 @@ func AccumulatePathsNotIgnored(path string) ([]ChangedFile, error) {
 			return nil
 		}
 
-		paths = append(paths, ChangedFile{Path: filePath})
+		// If it's in the .git/index, it's tracked
+		_, tracked := indexEntries[filePath]
+		paths = append(paths, ChangedFile{Path: filePath, Untracked: !tracked})
 		return nil
 	})
 
@@ -365,10 +369,10 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 		return nil, errors.New("Path does not exist: " + path)
 	}
 
-	// If git index file is missing, all files are unstaged/untracked
+	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return AccumulatePathsNotIgnored(path)
+		return AccumulatePathsNotIgnored(path, make(map[string]GitIndexEntry))
 	}
 
 	indexEntries, err := ParseGitIndex(gitIndexPath)
@@ -376,11 +380,11 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	paths, err := AccumulatePathsNotIgnored(path)
+	paths, err := AccumulatePathsNotIgnored(path, indexEntries)
 
 	// Filter unchanged files
-	for _, entry := range indexEntries {
-		thePath := filepath.Join(path, entry.Path)
+	for p, entry := range indexEntries {
+		thePath := filepath.Join(path, p)
 
 		pathFound := slices.IndexFunc(paths, func(e ChangedFile) bool {
 			return e.Path == thePath
@@ -393,15 +397,16 @@ func StatusRaw(path string, gitIndexPath string) ([]ChangedFile, error) {
 
 		whatChanged := fileChanged(entry, thePath, stat)
 
-		if pathFound == -1 {
-			// Since we only add the already existing files previously, we need to add an entry if it's missing
-			paths = append(paths, ChangedFile{Path: thePath})
-		} else {
+		if pathFound != -1 {
 			if err != nil || whatChanged == 0 {
 				paths = slices.Delete(paths, pathFound, pathFound+1)
 			} else {
 				paths[pathFound].WhatChanged = whatChanged
+				paths[pathFound].Untracked = false
 			}
+		} else {
+			// Since we only add the already existing files previously, we need to add an entry if it's missing
+			paths = append(paths, ChangedFile{Path: thePath})
 		}
 	}
 
