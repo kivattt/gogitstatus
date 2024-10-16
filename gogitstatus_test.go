@@ -123,7 +123,7 @@ func TestStatusRaw(t *testing.T) {
 			return "Tracked  "
 		}
 		for _, e := range entries {
-			fmt.Println("    " + untracked2Str(e.Untracked),  WhatChangedToString(e.WhatChanged) + " " + e.Path)
+			fmt.Println("    "+untracked2Str(e.Untracked), WhatChangedToString(e.WhatChanged)+" "+e.Path)
 		}
 	}
 
@@ -254,7 +254,7 @@ func TestParseGitIndex(t *testing.T) {
 
 	printEntries := func(entries map[string]GitIndexEntry) {
 		for path, e := range entries {
-			fmt.Println("    "+ strconv.FormatUint(uint64(e.Mode), 8) , hex.EncodeToString(e.Hash), path)
+			fmt.Println("    "+strconv.FormatUint(uint64(e.Mode), 8), hex.EncodeToString(e.Hash), path)
 		}
 	}
 

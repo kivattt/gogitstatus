@@ -36,6 +36,6 @@ func main() {
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println(untracked2Str(e.Untracked), whatChangedStr + e.Path)
+		fmt.Println(untracked2Str(e.Untracked), whatChangedStr+e.Path)
 	}
 }

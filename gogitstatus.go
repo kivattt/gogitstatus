@@ -19,7 +19,7 @@ import (
 // A small subset of a Git index entry, only 32-bit mode and 20-byte SHA-1 hash data
 type GitIndexEntry struct {
 	Mode uint32 // Contains the file type and unix permission bits
-//	Path string
+	//	Path string
 	Hash []byte // 20 bytes for the standard SHA-1
 }
 
@@ -314,7 +314,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 type ChangedFile struct {
 	Path        string
 	WhatChanged WhatChanged
-	Untracked bool // true = Untracked, false = Unstaged
+	Untracked   bool // true = Untracked, false = Unstaged
 }
 
 // Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files named ".git" (TODO: and those ignored by .gitignore)
