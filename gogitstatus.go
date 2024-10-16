@@ -21,11 +21,11 @@ import (
 // A small subset of a Git index entry, only 32-bit mode and 20-byte SHA-1 hash data
 type GitIndexEntry struct {
 	Mode uint32 // Contains the file type and unix permission bits
-	//	Path string
 	Hash []byte // 20 bytes for the standard SHA-1
 }
 
-func readIndexEntryPathName(file *os.File) (string, error) {
+// TODO: Can speed this up by first reading 0xfff bytes, and then 8 bytes at a time until the last byte of the 8-byte section is a null byte
+func readIndexEntryPathName(file *os.File) (strings.Builder, error) {
 	var ret strings.Builder
 
 	// Entry length so far
@@ -35,7 +35,7 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 	for {
 		_, err := io.ReadFull(file, singleByteSlice)
 		if err != nil {
-			return "", errors.New("Invalid size, readIndexEntryPathName failed: " + err.Error())
+			return ret, errors.New("Invalid size, readIndexEntryPathName failed: " + err.Error())
 		}
 
 		b := singleByteSlice[0]
@@ -58,16 +58,16 @@ func readIndexEntryPathName(file *os.File) (string, error) {
 	b := make([]byte, n)
 	_, err := io.ReadFull(file, b)
 	if err != nil {
-		return "", errors.New("Invalid size, readIndexEntryPathName failed while seeking over null bytes: " + err.Error())
+		return ret, errors.New("Invalid size, readIndexEntryPathName failed while seeking over null bytes: " + err.Error())
 	}
 
 	for _, e := range b {
 		if e != 0 {
-			return "", errors.New("Non-null byte found in null padding of length " + strconv.Itoa(n))
+			return ret, errors.New("Non-null byte found in null padding of length " + strconv.Itoa(n))
 		}
 	}
 
-	return ret.String(), nil
+	return ret, nil
 }
 
 // Returns the relative paths mapping to the GitIndexEntry
@@ -136,19 +136,51 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 			return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
 
-		// Seek to entry path name
-		_, err = file.Seek(2, 1) // 16 bits
+		flagsBytes := make([]byte, 2) // 16 bits 'flags' field
+		_, err = io.ReadFull(file, flagsBytes)
 		if err != nil {
-			return nil, errors.New("Invalid size, unable to seek to path name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			return nil, errors.New("Invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
 
-		// Read variable-length path name
-		pathName, err := readIndexEntryPathName(file)
-		if err != nil {
-			return nil, err
+		flags := binary.BigEndian.Uint16(flagsBytes)
+		nameLength := flags & 0xfff
+
+		var pathName strings.Builder
+		if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes
+			// Read variable-length path name
+			pathName, err = readIndexEntryPathName(file)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			bytes := make([]byte, nameLength)
+			_, err := io.ReadFull(file, bytes)
+			if err != nil {
+				return nil, errors.New("Invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+			}
+
+			pathName.Write(bytes)
+			entryLength := 40 + 20 + 2 // Entry length so far
+			// Read up to 8 null padding bytes
+			n := 8 - ((int(nameLength) + entryLength) % 8)
+			if n == 0 {
+				n = 8
+			}
+
+			b := make([]byte, n)
+			_, err = io.ReadFull(file, b)
+			if err != nil {
+				return nil, errors.New("Invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+			}
+
+			for _, e := range b {
+				if e != 0 {
+					return nil, errors.New("Non-null byte found in null padding of length " + strconv.FormatUint(uint64(n), 10))
+				}
+			}
 		}
 
-		entries[pathName] = GitIndexEntry{Mode: mode, Hash: hash}
+		entries[pathName.String()] = GitIndexEntry{Mode: mode, Hash: hash}
 	}
 
 	return entries, nil
@@ -319,8 +351,18 @@ type ChangedFile struct {
 	Untracked   bool // true = Untracked, false = Unstaged
 }
 
-// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git"
-func AccumulatePaths(path string, indexEntries map[string]GitIndexEntry) ([]ChangedFile, error) {
+// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git" and untracked files ignored by .gitignore
+func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) ([]ChangedFile, error) {
+	var ignores *ignore.GitIgnore
+	if respectGitIgnore {
+		var err error
+		// FIXME: Use exclude files priority https://git-scm.com/docs/gitignore
+		ignores, err = ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
+		if err != nil {
+			ignores = nil
+		}
+	}
+
 	var paths []ChangedFile
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -342,6 +384,14 @@ func AccumulatePaths(path string, indexEntries map[string]GitIndexEntry) ([]Chan
 
 		// If it's in the .git/index, it's tracked
 		_, tracked := indexEntries[filePath]
+
+		// Don't add untracked ignored files
+		if ignores != nil && !tracked {
+			if ignores.MatchesPath(filePath) {
+				return nil
+			}
+		}
+
 		paths = append(paths, ChangedFile{Path: filePath, Untracked: !tracked})
 		return nil
 	})
@@ -374,7 +424,7 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]Chang
 	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return AccumulatePaths(path, make(map[string]GitIndexEntry))
+		return AccumulatePathsNotIgnored(path, make(map[string]GitIndexEntry), respectGitIgnore)
 	}
 
 	indexEntries, err := ParseGitIndex(gitIndexPath)
@@ -382,19 +432,7 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]Chang
 		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	paths, err := AccumulatePaths(path, indexEntries)
-
-	// Filter untracked ignored files
-	if respectGitIgnore {
-		// FIXME: Use exclude files priority https://git-scm.com/docs/gitignore
-		ignore, err := ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
-		if err == nil {
-			paths = slices.DeleteFunc(paths, func(e ChangedFile) bool {
-				return e.Untracked && ignore.MatchesPath(e.Path)
-				//return ignore.MatchesPath(e.Path)
-			})
-		}
-	}
+	paths, err := AccumulatePathsNotIgnored(path, indexEntries, respectGitIgnore)
 
 	// Filter unchanged files
 	for p, entry := range indexEntries {

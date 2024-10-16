@@ -4,9 +4,14 @@ import (
 	"fmt"
 	"gogitstatus"
 	"os"
+	//	"runtime/pprof"
 )
 
 func main() {
+	/*	f, _ := os.Create("profile.prof")
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()*/
+
 	args := os.Args
 	if len(args) < 3 {
 		fmt.Println("Usage: showstatusraw [directory] [git index file]")
