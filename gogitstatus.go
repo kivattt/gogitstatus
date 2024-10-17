@@ -223,7 +223,7 @@ func hashMatches(path string, hash []byte) bool {
 		return false
 	}
 
-	_, err = io.Copy(newHash, file) // TODO: Check if written size is same as stat.Size() ?
+	err = sha1HashSum(newHash, file, stat)
 	if err != nil {
 		return false
 	}
