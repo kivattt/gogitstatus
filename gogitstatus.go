@@ -369,6 +369,20 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 			return nil
 		}
 
+		// If it's in the .git/index, it's tracked
+		_, tracked := indexEntries[filePath]
+
+		// Don't add untracked ignored files
+		if ignores != nil && !tracked {
+			if ignores.MatchesPath(filePath) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				} else {
+					return nil
+				}
+			}
+		}
+
 		// git status seems to ignore any file/directory named ".git", regardless of its parent directory
 		if d.Name() == ".git" {
 			if d.IsDir() {
@@ -380,16 +394,6 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 
 		if d.IsDir() {
 			return nil
-		}
-
-		// If it's in the .git/index, it's tracked
-		_, tracked := indexEntries[filePath]
-
-		// Don't add untracked ignored files
-		if ignores != nil && !tracked {
-			if ignores.MatchesPath(filePath) {
-				return nil
-			}
 		}
 
 		paths = append(paths, ChangedFile{Path: filePath, Untracked: !tracked})
