@@ -455,21 +455,20 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) (map[str
 			stat = nil // Just to be sure
 		}
 
-		whatChanged := fileChanged(entry, thePath, stat)
-
-		if pathFound {
-			if statErr != nil || whatChanged == 0 {
-				delete(paths, thePath)
-			} else {
-				paths[thePath] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
-			}
-		} else {
+		if !pathFound {
 			// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
 			// Deleted files need to be added since we previously only added files that already exist on the filesystem
 			if statErr != nil {
 				paths[thePath] = ChangedFile{Untracked: false}
 			}
+		}
+
+		whatChanged := fileChanged(entry, thePath, stat)
+		if statErr != nil || whatChanged == 0 {
+			delete(paths, thePath)
+		} else {
+			paths[thePath] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
 		}
 	}
 
