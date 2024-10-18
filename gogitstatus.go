@@ -380,6 +380,10 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 				return nil
 			}
 
+			if rel == "." {
+				return nil
+			}
+
 			if ignores.MatchesPath(rel) {
 				if d.IsDir() {
 					return filepath.SkipDir
@@ -443,6 +447,9 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]Chang
 	}
 
 	paths, err := AccumulatePathsNotIgnored(path, indexEntries, respectGitIgnore)
+	if err != nil {
+		return nil, err
+	}
 
 	// Filter unchanged files
 	for p, entry := range indexEntries {
@@ -452,23 +459,27 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]Chang
 			return e.Path == thePath
 		})
 
-		stat, err := os.Lstat(thePath)
-		if err != nil {
+		stat, statErr := os.Lstat(thePath)
+		if statErr != nil {
 			stat = nil // Just to be sure
 		}
 
 		whatChanged := fileChanged(entry, thePath, stat)
 
 		if pathFound != -1 {
-			if err != nil || whatChanged == 0 {
+			if statErr != nil || whatChanged == 0 {
 				paths = slices.Delete(paths, pathFound, pathFound+1)
 			} else {
 				paths[pathFound].WhatChanged = whatChanged
 				paths[pathFound].Untracked = false
 			}
 		} else {
+			// File is tracked, but ignored so we didn't add it previously. This might cause bugs?
+
 			// Deleted files need to be added to the list since we previously only added files that already exist on the filesystem
-			paths = append(paths, ChangedFile{Path: thePath, Untracked: false})
+			if statErr != nil {
+				paths = append(paths, ChangedFile{Path: thePath, Untracked: false})
+			}
 		}
 	}
 
