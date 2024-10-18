@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -346,13 +345,12 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 }
 
 type ChangedFile struct {
-	Path        string
 	WhatChanged WhatChanged
 	Untracked   bool // true = Untracked, false = Unstaged
 }
 
 // Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git" and untracked files ignored by .gitignore
-func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) ([]ChangedFile, error) {
+func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	var ignores *ignore.GitIgnore
 	if respectGitIgnore {
 		var err error
@@ -363,7 +361,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 		}
 	}
 
-	var paths []ChangedFile
+	paths := make(map[string]ChangedFile)
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -406,7 +404,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 			return nil
 		}
 
-		paths = append(paths, ChangedFile{Path: filePath, Untracked: !tracked})
+		paths[filePath] = ChangedFile{Untracked: !tracked}
 		return nil
 	})
 
@@ -418,7 +416,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 }
 
 // Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
-func Status(path string) ([]ChangedFile, error) {
+func Status(path string) (map[string]ChangedFile, error) {
 	dotGitPath := filepath.Join(path, ".git")
 	stat, err := os.Stat(dotGitPath)
 	if err != nil || !stat.IsDir() {
@@ -429,7 +427,7 @@ func Status(path string) ([]ChangedFile, error) {
 }
 
 // Does not check if path is a valid git repository
-func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]ChangedFile, error) {
+func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	stat, err := os.Stat(path)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("Path does not exist: " + path)
@@ -455,9 +453,7 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]Chang
 	for p, entry := range indexEntries {
 		thePath := filepath.Join(path, p)
 
-		pathFound := slices.IndexFunc(paths, func(e ChangedFile) bool {
-			return e.Path == thePath
-		})
+		_, pathFound := paths[thePath]
 
 		stat, statErr := os.Lstat(thePath)
 		if statErr != nil {
@@ -466,19 +462,18 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) ([]Chang
 
 		whatChanged := fileChanged(entry, thePath, stat)
 
-		if pathFound != -1 {
+		if pathFound {
 			if statErr != nil || whatChanged == 0 {
-				paths = slices.Delete(paths, pathFound, pathFound+1)
+				delete(paths, thePath)
 			} else {
-				paths[pathFound].WhatChanged = whatChanged
-				paths[pathFound].Untracked = false
+				paths[thePath] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
 			}
 		} else {
-			// File is tracked, but ignored so we didn't add it previously. This might cause bugs?
+			// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
-			// Deleted files need to be added to the list since we previously only added files that already exist on the filesystem
+			// Deleted files need to be added since we previously only added files that already exist on the filesystem
 			if statErr != nil {
-				paths = append(paths, ChangedFile{Path: thePath, Untracked: false})
+				paths[thePath] = ChangedFile{Untracked: false}
 			}
 		}
 	}

@@ -115,15 +115,15 @@ func TestStatusRaw(t *testing.T) {
 
 	printGray("TestStatusRaw:\n")
 
-	printChangedFiles := func(entries []ChangedFile) {
+	printChangedFiles := func(entries map[string]ChangedFile) {
 		untracked2Str := func(b bool) string {
 			if b {
 				return "Untracked"
 			}
 			return "Tracked  "
 		}
-		for _, e := range entries {
-			fmt.Println("    "+untracked2Str(e.Untracked), WhatChangedToString(e.WhatChanged)+" "+e.Path)
+		for k, v := range entries {
+			fmt.Println("    "+untracked2Str(v.Untracked), WhatChangedToString(v.WhatChanged)+" "+k)
 		}
 	}
 
@@ -149,7 +149,7 @@ func TestStatusRaw(t *testing.T) {
 			continue
 		}
 
-		var expectedChangedFiles []ChangedFile
+		expectedChangedFiles := make(map[string]ChangedFile)
 		var expectedError error = nil
 		var expectedAnyError bool
 
@@ -186,7 +186,7 @@ func TestStatusRaw(t *testing.T) {
 				pathText = split[2]
 			}
 
-			expectedChangedFiles = append(expectedChangedFiles, ChangedFile{Path: filepath.Join(filesPath, pathText), WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked})
+			expectedChangedFiles[filepath.Join(filesPath, pathText)] = ChangedFile{WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked}
 		}
 
 		_, err = os.Stat(filesPath)

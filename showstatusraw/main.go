@@ -36,11 +36,11 @@ func main() {
 		return "Tracked  "
 	}
 
-	for _, e := range paths {
+	for k, e := range paths {
 		whatChangedStr := gogitstatus.WhatChangedToString(e.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println(untracked2Str(e.Untracked), whatChangedStr+e.Path)
+		fmt.Println(untracked2Str(e.Untracked), whatChangedStr+k)
 	}
 }
