@@ -11,7 +11,7 @@ import (
 )
 
 // Writes the data stored in file into hash
-func sha1HashSum(hash hash.Hash, file *os.File, stat fs.FileInfo) error {
+func writeFileToHash(hash hash.Hash, file *os.File, stat fs.FileInfo) error {
 	if stat.Size() > 0 {
 		data, err := syscall.Mmap(int(file.Fd()), 0, int(stat.Size()), syscall.PROT_READ, syscall.MAP_SHARED)
 		if err != nil {

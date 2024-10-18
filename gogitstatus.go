@@ -223,7 +223,7 @@ func hashMatches(path string, hash []byte) bool {
 		return false
 	}
 
-	err = sha1HashSum(newHash, file, stat)
+	err = writeFileToHash(newHash, file, stat)
 	if err != nil {
 		return false
 	}

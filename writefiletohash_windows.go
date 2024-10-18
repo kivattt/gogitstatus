@@ -11,7 +11,7 @@ import (
 )
 
 // Writes the data stored in file into hash
-func sha1HashSum(hash hash.Hash, file *os.File, stat fs.FileInfo) error {
+func writeFileToHash(hash hash.Hash, file *os.File, stat fs.FileInfo) error {
 	_, err := io.Copy(hash, file)
 	return err
 }
