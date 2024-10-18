@@ -185,12 +185,7 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 	return entries, nil
 }
 
-func hashMatches(path string, hash []byte) bool {
-	stat, err := os.Lstat(path)
-	if err != nil {
-		return false
-	}
-
+func hashMatches(path string, stat os.FileInfo, hash []byte) bool {
 	// Symlinks are hashed with the target path, not the data of the target file
 	// On Windows, symlinks are stored as regular files (with target path as the file data), so we handle them as such later
 	if runtime.GOOS != "windows" && stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
@@ -332,7 +327,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	// TODO: Store mtime and ctime to check for change here, as is done in the match_stat_data() function in Git
 
-	if !hashMatches(entryFullPath, entry.Hash) {
+	if !hashMatches(entryFullPath, stat, entry.Hash) {
 		whatChanged |= DATA_CHANGED
 	}
 
@@ -453,19 +448,21 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) (map[str
 		stat, statErr := os.Lstat(thePath)
 		if statErr != nil {
 			stat = nil // Just to be sure
-		}
 
-		if !pathFound {
-			// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
+			if pathFound { // Deleted file
+				delete(paths, thePath)
+				continue
+			} else {
+				// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
-			// Deleted files need to be added since we previously only added files that already exist on the filesystem
-			if statErr != nil {
+				// Deleted files need to be added since we previously only added files that already exist on the filesystem
 				paths[thePath] = ChangedFile{Untracked: false}
+				continue
 			}
 		}
 
 		whatChanged := fileChanged(entry, thePath, stat)
-		if statErr != nil || whatChanged == 0 {
+		if whatChanged == 0 {
 			delete(paths, thePath)
 		} else {
 			paths[thePath] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
