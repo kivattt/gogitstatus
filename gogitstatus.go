@@ -374,7 +374,13 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 
 		// Don't add untracked ignored files
 		if ignores != nil && !tracked {
-			if ignores.MatchesPath(filePath) {
+			// We need to ignore based on the path relative to path
+			rel, err := filepath.Rel(path, filePath)
+			if err != nil {
+				return nil
+			}
+
+			if ignores.MatchesPath(rel) {
 				if d.IsDir() {
 					return filepath.SkipDir
 				} else {
