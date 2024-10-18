@@ -211,11 +211,6 @@ func hashMatches(path string, hash []byte) bool {
 	}
 	defer file.Close()
 
-	stat, err = os.Stat(path)
-	if err != nil {
-		return false
-	}
-
 	newHash := sha1.New()
 	_, err = newHash.Write(append([]byte("blob "+strconv.FormatInt(stat.Size(), 10)), 0))
 	if err != nil {
