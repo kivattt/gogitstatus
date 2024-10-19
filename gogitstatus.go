@@ -13,14 +13,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sabhiram/go-gitignore"
 )
 
 // A small subset of a Git index entry, only 32-bit mode and 20-byte SHA-1 hash data
 type GitIndexEntry struct {
-	Mode uint32 // Contains the file type and unix permission bits
-	Hash []byte // 20 bytes for the standard SHA-1
+	ModifiedTimeSeconds     uint32
+	ModifiedTimeNanoSeconds uint32
+	Mode                    uint32 // Contains the file type and unix permission bits
+	Hash                    []byte // 20 bytes for the standard SHA-1
 }
 
 // TODO: Can speed this up by first reading 0xfff bytes, and then 8 bytes at a time until the last byte of the 8-byte section is a null byte
@@ -107,8 +110,24 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
+		// Seek to 64-bit modified time
+		_, err = file.Seek(8, 1)
+		if err != nil {
+			return nil, errors.New("Invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+		}
+
+		// Read 64-bit modified time
+		mTimeBytes := make([]byte, 8) // 64 bits
+		_, err = io.ReadFull(file, mTimeBytes)
+		if err != nil {
+			return nil, errors.New("Invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+		}
+
+		mTimeSeconds := binary.BigEndian.Uint32(mTimeBytes[:4])
+		mTimeNanoSeconds := binary.BigEndian.Uint32(mTimeBytes[4:])
+
 		// Seek to 32-bit mode
-		_, err := file.Seek(24, 1) // 192 bits
+		_, err := file.Seek(8, 1) // 64 bits
 		if err != nil {
 			return nil, errors.New("Invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
@@ -179,7 +198,7 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 			}
 		}
 
-		entries[pathName.String()] = GitIndexEntry{Mode: mode, Hash: hash}
+		entries[pathName.String()] = GitIndexEntry{ModifiedTimeSeconds: mTimeSeconds, ModifiedTimeNanoSeconds: mTimeNanoSeconds, Mode: mode, Hash: hash}
 	}
 
 	return entries, nil
@@ -296,6 +315,11 @@ const GITLINK = 0b1110 << 12
 func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) WhatChanged {
 	if stat == nil {
 		return 0 // Deleted file
+	}
+
+	// TODO: Use ctime to prevent hash-check, and mtime to prevent mode check? Look into Git source code for this
+	if stat.ModTime() == time.Unix(int64(entry.ModifiedTimeSeconds), int64(entry.ModifiedTimeNanoSeconds)) {
+		return 0 // Modified time unchanged
 	}
 
 	var whatChanged WhatChanged
