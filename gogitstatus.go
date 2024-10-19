@@ -18,7 +18,7 @@ import (
 	"github.com/sabhiram/go-gitignore"
 )
 
-// A small subset of a Git index entry, only 32-bit mode and 20-byte SHA-1 hash data
+// A small subset of a Git index entry
 type GitIndexEntry struct {
 	ModifiedTimeSeconds     uint32
 	ModifiedTimeNanoSeconds uint32
@@ -26,6 +26,7 @@ type GitIndexEntry struct {
 	Hash                    []byte // 20 bytes for the standard SHA-1
 }
 
+// This function is only used for path lengths in the .git/index longer than 0xffe bytes
 // TODO: Can speed this up by first reading 0xfff bytes, and then 8 bytes at a time until the last byte of the 8-byte section is a null byte
 func readIndexEntryPathName(file *os.File) (strings.Builder, error) {
 	var ret strings.Builder
@@ -320,7 +321,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 	// TODO: Use ctime to prevent hash-check, and mtime to prevent mode check? Look into Git source code for this
 	if stat.ModTime() == time.Unix(int64(entry.ModifiedTimeSeconds), int64(entry.ModifiedTimeNanoSeconds)) {
 		return 0 // Modified time unchanged
-	}/* else {
+	} /* else {
 		whatChanged |= MTIME_CHANGED
 	}*/
 
