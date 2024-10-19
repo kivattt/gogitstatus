@@ -320,7 +320,9 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 	// TODO: Use ctime to prevent hash-check, and mtime to prevent mode check? Look into Git source code for this
 	if stat.ModTime() == time.Unix(int64(entry.ModifiedTimeSeconds), int64(entry.ModifiedTimeNanoSeconds)) {
 		return 0 // Modified time unchanged
-	}
+	}/* else {
+		whatChanged |= MTIME_CHANGED
+	}*/
 
 	var whatChanged WhatChanged
 
