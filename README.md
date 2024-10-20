@@ -23,6 +23,6 @@ https://git-scm.com/docs/index-format (missing some visual separation...)\
 https://github.com/git/git/blob/master/read-cache.c
 
 ## TODO
-- Support .gitignore files per-directory and exclude file priority
+- Support exclude file priority
 - Support SHA-256
 - Support other Git Index versions besides 2
