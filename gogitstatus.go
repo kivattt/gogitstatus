@@ -382,25 +382,6 @@ type ChangedFile struct {
 	Untracked   bool // true = Untracked, false = Unstaged
 }
 
-func parentDirWithSlashPrefix(path string) string {
-	if path == "." {
-		path = ""
-	}
-	return filepath.Dir("/" + path) // TODO: Check for Windows
-}
-
-func withSlashPrefix(path string) string {
-	if path == "" {
-		return "/"
-	}
-
-	if path[0] != '/' {
-		return "/" + path
-	}
-
-	return path
-}
-
 func bool2Str(b bool) string {
 	if b {
 		return "true"
@@ -409,15 +390,14 @@ func bool2Str(b bool) string {
 }
 
 func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
-	dir := parentDirWithSlashPrefix(path)
+	dir := filepath.Dir(path)
 	for {
 		ignore, ok := ignoresMap[dir]
-		rel, err := filepath.Rel(dir, withSlashPrefix(path))
+		rel, err := filepath.Rel(dir, path)
 		if err != nil {
 			return false
 		}
 
-		//if ok && (*ignore).MatchesPath(rel) {
 		if ok && ignore.MatchesPath(rel) {
 			return true
 		}
@@ -426,7 +406,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 		//fmt.Println("dir lookup:", dir, " (cached gitignore? " + bool2Str(ok) + ")")
 
 		// Reached root path without any match
-		if dir == filepath.Dir(dir) {
+		if dir == "." {
 			return false
 		}
 
@@ -442,7 +422,8 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 		// FIXME: Use exclude files priority https://git-scm.com/docs/gitignore
 		rootIgnore, err := ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
 		if err == nil {
-			ignoresMap["/"] = rootIgnore // TODO: Check for Windows
+			// Root directory
+			ignoresMap["."] = rootIgnore
 		}
 	}
 
@@ -470,7 +451,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 			if d.IsDir() {
 				childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
 				if err == nil {
-					ignoresMap[withSlashPrefix(rel)] = childIgnore // TODO: Check for Windows
+					ignoresMap[rel] = childIgnore
 				}
 			}
 
