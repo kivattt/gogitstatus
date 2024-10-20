@@ -382,15 +382,67 @@ type ChangedFile struct {
 	Untracked   bool // true = Untracked, false = Unstaged
 }
 
+func parentDirWithSlashPrefix(path string) string {
+	if path == "." {
+		path = ""
+	}
+	return filepath.Dir("/" + path) // TODO: Check for Windows
+}
+
+func withSlashPrefix(path string) string {
+	if path == "" {
+		return "/"
+	}
+
+	if path[0] != '/' {
+		return "/" + path
+	}
+
+	return path
+}
+
+func bool2Str(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
+	dir := parentDirWithSlashPrefix(path)
+	for {
+		ignore, ok := ignoresMap[dir]
+		rel, err := filepath.Rel(dir, withSlashPrefix(path))
+		if err != nil {
+			return false
+		}
+
+		//if ok && (*ignore).MatchesPath(rel) {
+		if ok && ignore.MatchesPath(rel) {
+			return true
+		}
+
+		// Debugging
+		//fmt.Println("dir lookup:", dir, " (cached gitignore? " + bool2Str(ok) + ")")
+
+		// Reached root path without any match
+		if dir == filepath.Dir(dir) {
+			return false
+		}
+
+		dir = filepath.Dir(dir)
+	}
+}
+
 // Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git" and untracked files ignored by .gitignore
 func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
-	var ignores *ignore.GitIgnore
+	ignoresMap := make(map[string]*ignore.GitIgnore)
+
 	if respectGitIgnore {
-		var err error
 		// FIXME: Use exclude files priority https://git-scm.com/docs/gitignore
-		ignores, err = ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
-		if err != nil {
-			ignores = nil
+		rootIgnore, err := ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
+		if err == nil {
+			ignoresMap["/"] = rootIgnore // TODO: Check for Windows
 		}
 	}
 
@@ -404,7 +456,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 		_, tracked := indexEntries[filePath]
 
 		// Don't add untracked ignored files
-		if ignores != nil && !tracked {
+		if respectGitIgnore && !tracked {
 			// We need to ignore based on the path relative to path
 			rel, err := filepath.Rel(path, filePath)
 			if err != nil {
@@ -415,7 +467,14 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 				return nil
 			}
 
-			if ignores.MatchesPath(rel) {
+			if d.IsDir() {
+				childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
+				if err == nil {
+					ignoresMap[withSlashPrefix(rel)] = childIgnore // TODO: Check for Windows
+				}
+			}
+
+			if ignoreMatch(rel, ignoresMap) {
 				if d.IsDir() {
 					return filepath.SkipDir
 				} else {
