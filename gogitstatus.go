@@ -467,7 +467,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 	return paths, nil
 }
 
-// Takes in the path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
+// Takes in the root path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func Status(path string) (map[string]ChangedFile, error) {
 	dotGitPath := filepath.Join(path, ".git")
 	stat, err := os.Stat(dotGitPath)
