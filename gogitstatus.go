@@ -406,41 +406,32 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	ignoresMap := make(map[string]*ignore.GitIgnore)
 
-	if respectGitIgnore {
-		// FIXME: Use exclude files priority https://git-scm.com/docs/gitignore
-		rootIgnore, err := ignore.CompileIgnoreFile(filepath.Join(path, ".gitignore"))
-		if err == nil {
-			// Root directory
-			ignoresMap["."] = rootIgnore
-		}
-	}
-
 	paths := make(map[string]ChangedFile)
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 
+		// We need to handle everything based on the path relative to path
+		rel, err := filepath.Rel(path, filePath)
+		if err != nil {
+			return nil
+		}
+
 		// If it's in the .git/index, it's tracked
-		_, tracked := indexEntries[filePath]
+		_, tracked := indexEntries[rel]
 
 		// Don't add untracked ignored files
 		if respectGitIgnore && !tracked {
-			// We need to ignore based on the path relative to path
-			rel, err := filepath.Rel(path, filePath)
-			if err != nil {
-				return nil
-			}
-
-			if rel == "." {
-				return nil
-			}
-
 			if d.IsDir() {
 				childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
 				if err == nil {
 					ignoresMap[rel] = childIgnore
 				}
+			}
+
+			if rel == "." {
+				return nil
 			}
 
 			if ignoreMatch(rel, ignoresMap) {
@@ -465,7 +456,7 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 			return nil
 		}
 
-		paths[filePath] = ChangedFile{Untracked: !tracked}
+		paths[rel] = ChangedFile{Untracked: !tracked}
 		return nil
 	})
 
@@ -512,31 +503,31 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) (map[str
 
 	// Filter unchanged files
 	for p, entry := range indexEntries {
-		thePath := filepath.Join(path, p)
+		fullPath := filepath.Join(path, p)
 
-		_, pathFound := paths[thePath]
+		_, pathFound := paths[p]
 
-		stat, statErr := os.Lstat(thePath)
+		stat, statErr := os.Lstat(fullPath)
 		if statErr != nil {
 			stat = nil // Just to be sure
 
 			if pathFound { // Deleted file
-				delete(paths, thePath)
+				delete(paths, p)
 				continue
 			} else {
 				// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
 				// Deleted files need to be added since we previously only added files that already exist on the filesystem
-				paths[thePath] = ChangedFile{Untracked: false}
+				paths[p] = ChangedFile{Untracked: false}
 				continue
 			}
 		}
 
-		whatChanged := fileChanged(entry, thePath, stat)
+		whatChanged := fileChanged(entry, fullPath, stat)
 		if whatChanged == 0 {
-			delete(paths, thePath)
+			delete(paths, p)
 		} else {
-			paths[thePath] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+			paths[p] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
 		}
 	}
 

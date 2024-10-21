@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"gogitstatus"
+	"github.com/kivattt/gogitstatus"
 	"io/fs"
 	"os"
 	"strconv"
@@ -25,7 +25,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, e := range entries {
-		fmt.Println(strconv.FormatInt(int64(e.Mode&gogitstatus.OBJECT_TYPE_MASK>>13), 2)+strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8), hex.EncodeToString(e.Hash), e.Path)
+	for path, e := range entries {
+		fmt.Println(strconv.FormatInt(int64(e.Mode&gogitstatus.OBJECT_TYPE_MASK>>13), 2)+strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8), hex.EncodeToString(e.Hash), path)
 	}
 }

@@ -186,7 +186,7 @@ func TestStatusRaw(t *testing.T) {
 				pathText = split[2]
 			}
 
-			expectedChangedFiles[filepath.Join(filesPath, pathText)] = ChangedFile{WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked}
+			expectedChangedFiles[pathText] = ChangedFile{WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked}
 		}
 
 		_, err = os.Stat(filesPath)
