@@ -27,7 +27,7 @@ type GitIndexEntry struct {
 }
 
 // This function is only used for path lengths in the .git/index longer than 0xffe bytes
-// TODO: Can speed this up by first reading 0xfff bytes, and then 8 bytes at a time until the last byte of the 8-byte section is a null byte
+// TODO: Can speed this up by first reading 0xfff bytes, and then 8 bytes at a time until the last byte of an 8-byte section is a null byte
 func readIndexEntryPathName(reader *bytes.Reader) (strings.Builder, error) {
 	var ret strings.Builder
 
@@ -91,8 +91,8 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 	}
 	defer file.Close()
 
-	// The non-Windows mmap implementation is effectively the same speed in this case
-	// because we're only reading 1 file, but let's use it cause we can
+	// The mmap implementation is effectively the same speed as the plain io.ReadFull in this case
+	// because we're only reading 1 file here. But let's use it when we can
 	data, err := openFileData(file, stat)
 	if err != nil {
 		return nil, err
@@ -100,9 +100,6 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 	defer closeFileData(data)
 
 	reader := bytes.NewReader(data)
-
-	/*	cursor := 0
-		headerBytes := data[cursor:cursor+12]*/
 
 	headerBytes := make([]byte, 12)
 	_, err = io.ReadFull(reader, headerBytes)
@@ -125,15 +122,13 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
 		// Seek to 64-bit modified time
-		_, err = reader.Seek(8, 1)
-		if err != nil {
+		if _, err := reader.Seek(8, 1); err != nil {
 			return nil, errors.New("Invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		// Read 64-bit modified time
 		mTimeBytes := make([]byte, 8) // 64 bits
-		_, err = io.ReadFull(reader, mTimeBytes)
-		if err != nil {
+		if _, err := io.ReadFull(reader, mTimeBytes); err != nil {
 			return nil, errors.New("Invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
@@ -141,36 +136,31 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 		mTimeNanoSeconds := binary.BigEndian.Uint32(mTimeBytes[4:])
 
 		// Seek to 32-bit mode
-		_, err := reader.Seek(8, 1) // 64 bits
-		if err != nil {
+		if _, err := reader.Seek(8, 1); err != nil { // 64 bits
 			return nil, errors.New("Invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		// Read 32-bit mode
 		bytes := make([]byte, 4) // 32 bits
-		_, err = io.ReadFull(reader, bytes)
-		if err != nil {
+		if _, err := io.ReadFull(reader, bytes); err != nil {
 			return nil, errors.New("Invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		mode := binary.BigEndian.Uint32(bytes)
 
 		// Seek to "object name" (hash data)
-		_, err = reader.Seek(12, 1) // 96 bits
-		if err != nil {
+		if _, err := reader.Seek(12, 1); err != nil { // 96 bits
 			return nil, errors.New("Invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 		}
 
 		// Read hash data
 		hash := make([]byte, 20) // 160 bits
-		_, err = io.ReadFull(reader, hash)
-		if err != nil {
+		if _, err := io.ReadFull(reader, hash); err != nil {
 			return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
 
 		flagsBytes := make([]byte, 2) // 16 bits 'flags' field
-		_, err = io.ReadFull(reader, flagsBytes)
-		if err != nil {
+		if _, err := io.ReadFull(reader, flagsBytes); err != nil {
 			return nil, errors.New("Invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
 		}
 
@@ -186,8 +176,7 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 			}
 		} else {
 			bytes := make([]byte, nameLength)
-			_, err := io.ReadFull(reader, bytes)
-			if err != nil {
+			if _, err := io.ReadFull(reader, bytes); err != nil {
 				return nil, errors.New("Invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
@@ -200,8 +189,7 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 			}
 
 			b := make([]byte, n)
-			_, err = io.ReadFull(reader, b)
-			if err != nil {
+			if _, err = io.ReadFull(reader, b); err != nil {
 				return nil, errors.New("Invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
