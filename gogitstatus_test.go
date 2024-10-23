@@ -3,6 +3,7 @@ package gogitstatus
 import (
 	"archive/zip"
 	"bufio"
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -199,7 +200,8 @@ func TestStatusRaw(t *testing.T) {
 				}()
 			}
 		}
-		changedFiles, err := StatusRaw(filesPath, indexPath, true)
+		ctx := context.WithoutCancel(context.Background())
+		changedFiles, err := StatusRaw(ctx, filesPath, indexPath, true)
 
 		if expectedAnyError && err == nil {
 			fmt.Println("expected any error, but got nil")
@@ -327,7 +329,8 @@ func TestParseGitIndex(t *testing.T) {
 			}
 			file.Close()
 
-			entries, err := ParseGitIndex(indexPath)
+			ctx := context.WithoutCancel(context.Background())
+			entries, err := ParseGitIndex(ctx, indexPath)
 			if expectedError == nil && err != nil {
 				printRed("Failed\n")
 				fmt.Println("expected no error, but got: " + err.Error())

@@ -2,6 +2,7 @@ package gogitstatus
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
@@ -75,7 +76,7 @@ func readIndexEntryPathName(reader *bytes.Reader) (strings.Builder, error) {
 
 // Returns the relative paths mapping to the GitIndexEntry
 // Parses a Git Index file (version 2)
-func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
+func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -121,86 +122,91 @@ func ParseGitIndex(path string) (map[string]GitIndexEntry, error) {
 
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
-		// Seek to 64-bit modified time
-		if _, err := reader.Seek(8, 1); err != nil {
-			return nil, errors.New("Invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
-		}
-
-		// Read 64-bit modified time
-		mTimeBytes := make([]byte, 8) // 64 bits
-		if _, err := io.ReadFull(reader, mTimeBytes); err != nil {
-			return nil, errors.New("Invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
-		}
-
-		mTimeSeconds := binary.BigEndian.Uint32(mTimeBytes[:4])
-		mTimeNanoSeconds := binary.BigEndian.Uint32(mTimeBytes[4:])
-
-		// Seek to 32-bit mode
-		if _, err := reader.Seek(8, 1); err != nil { // 64 bits
-			return nil, errors.New("Invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
-		}
-
-		// Read 32-bit mode
-		bytes := make([]byte, 4) // 32 bits
-		if _, err := io.ReadFull(reader, bytes); err != nil {
-			return nil, errors.New("Invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
-		}
-
-		mode := binary.BigEndian.Uint32(bytes)
-
-		// Seek to "object name" (hash data)
-		if _, err := reader.Seek(12, 1); err != nil { // 96 bits
-			return nil, errors.New("Invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
-		}
-
-		// Read hash data
-		hash := make([]byte, 20) // 160 bits
-		if _, err := io.ReadFull(reader, hash); err != nil {
-			return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
-		}
-
-		flagsBytes := make([]byte, 2) // 16 bits 'flags' field
-		if _, err := io.ReadFull(reader, flagsBytes); err != nil {
-			return nil, errors.New("Invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
-		}
-
-		flags := binary.BigEndian.Uint16(flagsBytes)
-		nameLength := flags & 0xfff
-
-		var pathName strings.Builder
-		if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes
-			// Read variable-length path name
-			pathName, err = readIndexEntryPathName(reader)
-			if err != nil {
-				return nil, err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			// Seek to 64-bit modified time
+			if _, err := reader.Seek(8, 1); err != nil {
+				return nil, errors.New("Invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
-		} else {
-			bytes := make([]byte, nameLength)
+
+			// Read 64-bit modified time
+			mTimeBytes := make([]byte, 8) // 64 bits
+			if _, err := io.ReadFull(reader, mTimeBytes); err != nil {
+				return nil, errors.New("Invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			}
+
+			mTimeSeconds := binary.BigEndian.Uint32(mTimeBytes[:4])
+			mTimeNanoSeconds := binary.BigEndian.Uint32(mTimeBytes[4:])
+
+			// Seek to 32-bit mode
+			if _, err := reader.Seek(8, 1); err != nil { // 64 bits
+				return nil, errors.New("Invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			}
+
+			// Read 32-bit mode
+			bytes := make([]byte, 4) // 32 bits
 			if _, err := io.ReadFull(reader, bytes); err != nil {
-				return nil, errors.New("Invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+				return nil, errors.New("Invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
-			pathName.Write(bytes)
-			entryLength := 40 + 20 + 2 // Entry length so far
-			// Read up to 8 null padding bytes
-			n := 8 - ((int(nameLength) + entryLength) % 8)
-			if n == 0 {
-				n = 8
+			mode := binary.BigEndian.Uint32(bytes)
+
+			// Seek to "object name" (hash data)
+			if _, err := reader.Seek(12, 1); err != nil { // 96 bits
+				return nil, errors.New("Invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
-			b := make([]byte, n)
-			if _, err = io.ReadFull(reader, b); err != nil {
-				return nil, errors.New("Invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+			// Read hash data
+			hash := make([]byte, 20) // 160 bits
+			if _, err := io.ReadFull(reader, hash); err != nil {
+				return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
-			for _, e := range b {
-				if e != 0 {
-					return nil, errors.New("Non-null byte found in null padding of length " + strconv.FormatUint(uint64(n), 10))
+			flagsBytes := make([]byte, 2) // 16 bits 'flags' field
+			if _, err := io.ReadFull(reader, flagsBytes); err != nil {
+				return nil, errors.New("Invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
+			}
+
+			flags := binary.BigEndian.Uint16(flagsBytes)
+			nameLength := flags & 0xfff
+
+			var pathName strings.Builder
+			if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes
+				// Read variable-length path name
+				pathName, err = readIndexEntryPathName(reader)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				bytes := make([]byte, nameLength)
+				if _, err := io.ReadFull(reader, bytes); err != nil {
+					return nil, errors.New("Invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+				}
+
+				pathName.Write(bytes)
+				entryLength := 40 + 20 + 2 // Entry length so far
+				// Read up to 8 null padding bytes
+				n := 8 - ((int(nameLength) + entryLength) % 8)
+				if n == 0 {
+					n = 8
+				}
+
+				b := make([]byte, n)
+				if _, err = io.ReadFull(reader, b); err != nil {
+					return nil, errors.New("Invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+				}
+
+				for _, e := range b {
+					if e != 0 {
+						return nil, errors.New("Non-null byte found in null padding of length " + strconv.FormatUint(uint64(n), 10))
+					}
 				}
 			}
-		}
 
-		entries[pathName.String()] = GitIndexEntry{ModifiedTimeSeconds: mTimeSeconds, ModifiedTimeNanoSeconds: mTimeNanoSeconds, Mode: mode, Hash: hash}
+			entries[pathName.String()] = GitIndexEntry{ModifiedTimeSeconds: mTimeSeconds, ModifiedTimeNanoSeconds: mTimeNanoSeconds, Mode: mode, Hash: hash}
+		}
 	}
 
 	return entries, nil
@@ -266,6 +272,8 @@ const (
 	INODE_CHANGED             = 0x0010 // Use or not?
 	DATA_CHANGED              = 0x0020
 	TYPE_CHANGED              = 0x0040
+
+	DELETED = 0x0080
 )
 
 var whatChangedToStringMap = map[WhatChanged]string{
@@ -276,6 +284,8 @@ var whatChangedToStringMap = map[WhatChanged]string{
 	INODE_CHANGED: "INODE_CHANGED",
 	DATA_CHANGED:  "DATA_CHANGED",
 	TYPE_CHANGED:  "TYPE_CHANGED",
+
+	DELETED: "DELETED",
 }
 
 var stringToWhatChangedMap = map[string]WhatChanged{
@@ -286,6 +296,8 @@ var stringToWhatChangedMap = map[string]WhatChanged{
 	"INODE_CHANGED": INODE_CHANGED,
 	"DATA_CHANGED":  DATA_CHANGED,
 	"TYPE_CHANGED":  TYPE_CHANGED,
+
+	"DELETED": DELETED,
 }
 
 func WhatChangedToString(whatChanged WhatChanged) string {
@@ -403,61 +415,66 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 }
 
 // Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git" and untracked files ignored by .gitignore
-func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
+func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	ignoresMap := make(map[string]*ignore.GitIgnore)
 
 	paths := make(map[string]ChangedFile)
 	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		// We need to handle everything based on the path relative to path
-		rel, err := filepath.Rel(path, filePath)
-		if err != nil {
-			return nil
-		}
-
-		// If it's in the .git/index, it's tracked
-		_, tracked := indexEntries[rel]
-
-		// Don't add untracked ignored files
-		if respectGitIgnore && !tracked {
-			if d.IsDir() {
-				childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
-				if err == nil {
-					ignoresMap[rel] = childIgnore
-				}
-			}
-
-			if rel == "." {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if err != nil {
 				return nil
 			}
 
-			if ignoreMatch(rel, ignoresMap) {
+			// We need to handle everything based on the path relative to path
+			rel, err := filepath.Rel(path, filePath)
+			if err != nil {
+				return nil
+			}
+
+			// If it's in the .git/index, it's tracked
+			_, tracked := indexEntries[rel]
+
+			// Don't add untracked ignored files
+			if respectGitIgnore && !tracked {
+				if d.IsDir() {
+					childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
+					if err == nil {
+						ignoresMap[rel] = childIgnore
+					}
+				}
+
+				if rel == "." {
+					return nil
+				}
+
+				if ignoreMatch(rel, ignoresMap) {
+					if d.IsDir() {
+						return filepath.SkipDir
+					} else {
+						return nil
+					}
+				}
+			}
+
+			// git status seems to ignore any file/directory named ".git", regardless of its parent directory
+			if d.Name() == ".git" {
 				if d.IsDir() {
 					return filepath.SkipDir
 				} else {
 					return nil
 				}
 			}
-		}
 
-		// git status seems to ignore any file/directory named ".git", regardless of its parent directory
-		if d.Name() == ".git" {
 			if d.IsDir() {
-				return filepath.SkipDir
-			} else {
 				return nil
 			}
-		}
 
-		if d.IsDir() {
+			paths[rel] = ChangedFile{Untracked: !tracked}
 			return nil
 		}
-
-		paths[rel] = ChangedFile{Untracked: !tracked}
-		return nil
 	})
 
 	if err != nil {
@@ -469,17 +486,23 @@ func AccumulatePathsNotIgnored(path string, indexEntries map[string]GitIndexEntr
 
 // Takes in the root path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func Status(path string) (map[string]ChangedFile, error) {
+	ctx := context.WithoutCancel(context.Background())
+	return StatusWithContext(ctx, path)
+}
+
+// Cancellable with context, takes in the root path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
+func StatusWithContext(ctx context.Context, path string) (map[string]ChangedFile, error) {
 	dotGitPath := filepath.Join(path, ".git")
 	stat, err := os.Stat(dotGitPath)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("Not a Git repository")
 	}
 
-	return StatusRaw(path, filepath.Join(dotGitPath, "index"), true)
+	return StatusRaw(ctx, path, filepath.Join(dotGitPath, "index"), true)
 }
 
-// Does not check if path is a valid git repository
-func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) (map[string]ChangedFile, error) {
+// Cancellable with context, does not check if path is a valid git repository
+func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	stat, err := os.Stat(path)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("Path does not exist: " + path)
@@ -488,46 +511,51 @@ func StatusRaw(path string, gitIndexPath string, respectGitIgnore bool) (map[str
 	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return AccumulatePathsNotIgnored(path, make(map[string]GitIndexEntry), respectGitIgnore)
+		return AccumulatePathsNotIgnored(ctx, path, make(map[string]GitIndexEntry), respectGitIgnore)
 	}
 
-	indexEntries, err := ParseGitIndex(gitIndexPath)
+	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
 	if err != nil {
 		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	paths, err := AccumulatePathsNotIgnored(path, indexEntries, respectGitIgnore)
+	paths, err := AccumulatePathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
 	if err != nil {
 		return nil, err
 	}
 
 	// Filter unchanged files
 	for p, entry := range indexEntries {
-		fullPath := filepath.Join(path, p)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			fullPath := filepath.Join(path, p)
 
-		_, pathFound := paths[p]
+			_, pathFound := paths[p]
 
-		stat, statErr := os.Lstat(fullPath)
-		if statErr != nil {
-			stat = nil // Just to be sure
+			stat, statErr := os.Lstat(fullPath)
+			if statErr != nil {
+				stat = nil // Just to be sure
 
-			if pathFound { // Deleted file
-				delete(paths, p)
-				continue
-			} else {
-				// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
+				if pathFound { // Deleted file
+					delete(paths, p)
+					continue
+				} else {
+					// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
-				// Deleted files need to be added since we previously only added files that already exist on the filesystem
-				paths[p] = ChangedFile{Untracked: false}
-				continue
+					// Deleted files need to be added since we previously only added files that already exist on the filesystem
+					paths[p] = ChangedFile{WhatChanged: DELETED, Untracked: false}
+					continue
+				}
 			}
-		}
 
-		whatChanged := fileChanged(entry, fullPath, stat)
-		if whatChanged == 0 {
-			delete(paths, p)
-		} else {
-			paths[p] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+			whatChanged := fileChanged(entry, fullPath, stat)
+			if whatChanged == 0 {
+				delete(paths, p)
+			} else {
+				paths[p] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+			}
 		}
 	}
 
