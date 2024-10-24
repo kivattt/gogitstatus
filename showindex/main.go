@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/kivattt/gogitstatus"
 	"io/fs"
 	"os"
 	"strconv"
+
+	"github.com/kivattt/gogitstatus"
 )
 
 func main() {
@@ -19,7 +21,8 @@ func main() {
 
 	path := os.Args[1]
 
-	entries, err := gogitstatus.ParseGitIndex(path)
+	ctx := context.WithoutCancel(context.Background())
+	entries, err := gogitstatus.ParseGitIndex(ctx, path)
 	if err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)

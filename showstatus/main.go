@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	//	defer profile.Start(profile.MemProfile, profile.MemProfileRate(1)).Stop()
+	//defer profile.Start(profile.CPUProfile).Stop()
 
 	args := os.Args
 

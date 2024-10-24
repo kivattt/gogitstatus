@@ -2,11 +2,11 @@
 This is a library for finding unstaged/untracked files in local Git repositories\
 Tested for Linux, FreeBSD and Windows
 
-To try out `gogitstatus.StatusRaw()`, run the showstatusraw program:
+To try out `gogitstatus.Status()`, run the showstatus program:
 ```console
-cd showstatusraw
+cd showstatus
 go build
-./showstatusraw files index
+./showstatus # In any git repository
 ```
 
 To try out `gogitstatus.ParseIndex()`, run the showindex program:
