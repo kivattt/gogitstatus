@@ -530,9 +530,8 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			fullPath := filepath.Join(path, p)
-
 			pFromSlash := filepath.FromSlash(p)
+			fullPath := filepath.Join(path, pFromSlash)
 
 			_, pathFound := paths[pFromSlash]
 
