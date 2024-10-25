@@ -187,6 +187,8 @@ func TestStatusRaw(t *testing.T) {
 				pathText = split[2]
 			}
 
+			pathText = filepath.FromSlash(pathText)
+
 			expectedChangedFiles[pathText] = ChangedFile{WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked}
 		}
 
