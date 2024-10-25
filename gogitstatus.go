@@ -532,29 +532,31 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		default:
 			fullPath := filepath.Join(path, p)
 
-			_, pathFound := paths[p]
+			pFromSlash := filepath.FromSlash(p)
+
+			_, pathFound := paths[pFromSlash]
 
 			stat, statErr := os.Lstat(fullPath)
 			if statErr != nil {
 				stat = nil // Just to be sure
 
 				if pathFound { // Deleted file
-					delete(paths, p)
+					delete(paths, pFromSlash)
 					continue
 				} else {
 					// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
 					// Deleted files need to be added since we previously only added files that already exist on the filesystem
-					paths[p] = ChangedFile{WhatChanged: DELETED, Untracked: false}
+					paths[pFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
 					continue
 				}
 			}
 
 			whatChanged := fileChanged(entry, fullPath, stat)
 			if whatChanged == 0 {
-				delete(paths, p)
+				delete(paths, pFromSlash)
 			} else {
-				paths[p] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+				paths[pFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
 			}
 		}
 	}
