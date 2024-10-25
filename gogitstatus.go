@@ -435,7 +435,7 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 			}
 
 			// If it's in the .git/index, it's tracked
-			_, tracked := indexEntries[rel]
+			_, tracked := indexEntries[filepath.ToSlash(rel)]
 
 			// Don't add untracked ignored files
 			if respectGitIgnore && !tracked {
