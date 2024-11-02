@@ -484,6 +484,21 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 	return paths, nil
 }
 
+// Use this function to also include directories containing unstaged/untracked files
+// by passing the output of Status() or StatusWithContext() through this function
+func ChangedFilesIncludingDirectories(changedFiles map[string]ChangedFile) map[string]ChangedFile {
+	ret := changedFiles
+	for path, e := range changedFiles {
+		if !strings.ContainsRune(path, os.PathSeparator) {
+			continue
+		}
+
+		ret[filepath.Dir(path)] = e
+	}
+
+	return ret
+}
+
 // Takes in the root path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func Status(path string) (map[string]ChangedFile, error) {
 	ctx := context.WithoutCancel(context.Background())

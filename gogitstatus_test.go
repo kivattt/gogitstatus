@@ -368,3 +368,50 @@ func TestParseGitIndex(t *testing.T) {
 		t.Fatal("See above ^")
 	}
 }
+
+func TestChangedFilesIncludingDirectories(t *testing.T) {
+	changedFiles := map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+	}
+
+	expected := map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+		"screenshots":    {},
+	}
+
+	got := ChangedFilesIncludingDirectories(changedFiles)
+
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatal("TestChangedFilesIncludingDirectories got an unexpected value")
+	}
+
+	changedFiles = map[string]ChangedFile{
+		"main.go":                        {},
+		"screenshots/hi":                 {},
+		"folder/anotherfolder/hello.txt": {},
+		"folder/anotherfolder/hi":        {},
+		"folder/file.txt":                {},
+		"folder/anotherfile.txt":         {},
+	}
+
+	expected = map[string]ChangedFile{
+		"main.go":                        {},
+		"screenshots/hi":                 {},
+		"folder/anotherfolder/hello.txt": {},
+		"folder/anotherfolder/hi":        {},
+		"folder/file.txt":                {},
+		"folder/anotherfile.txt":         {},
+
+		"screenshots":          {},
+		"folder/anotherfolder": {},
+		"folder":               {},
+	}
+
+	got = ChangedFilesIncludingDirectories(changedFiles)
+
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatal("TestChangedFilesIncludingDirectories got an unexpected value")
+	}
+}
