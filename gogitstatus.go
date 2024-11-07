@@ -493,12 +493,14 @@ func IncludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 		ret[k] = v
 	}
 
+	// Bad time complexity, could maybe refactor the normal status functions
+	// to include directories (indicated by a trailing path separator?) to speed it up.
 	for path, e := range changedFiles {
-		if !strings.ContainsRune(path, os.PathSeparator) {
-			continue
+		parent := path
+		for strings.ContainsRune(parent, os.PathSeparator) {
+			parent = filepath.Dir(parent)
+			ret[parent] = e
 		}
-
-		ret[filepath.Dir(path)] = e
 	}
 
 	return ret
@@ -514,12 +516,18 @@ func ExcludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 		ret[k] = v
 	}
 
+	// Bad time complexity, could maybe refactor the normal status functions
+	// to include directories (indicated by a trailing path separator?) to speed it up.
 	for path := range ret {
 		if !strings.ContainsRune(path, os.PathSeparator) {
 			continue
 		}
 
-		delete(ret, filepath.Dir(path))
+		parent := path
+		for strings.ContainsRune(parent, os.PathSeparator) {
+			parent = filepath.Dir(parent)
+			delete(ret, parent)
+		}
 	}
 
 	return ret

@@ -426,6 +426,22 @@ func TestIncludingDirectories(t *testing.T) {
 	}
 
 	changedFiles = map[string]ChangedFile{
+		c("many/folders/for/sure/oh/yeah.txt"): {},
+	}
+	expected = map[string]ChangedFile{
+		c("many"):                              {},
+		c("many/folders"):                      {},
+		c("many/folders/for"):                  {},
+		c("many/folders/for/sure"):             {},
+		c("many/folders/for/sure/oh"):          {},
+		c("many/folders/for/sure/oh/yeah.txt"): {},
+	}
+	got = IncludingDirectories(changedFiles)
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatal("TestIncludingDirectories did not recursively add directories to the map")
+	}
+
+	changedFiles = map[string]ChangedFile{
 		c("main.go"):        {},
 		c("screenshots/hi"): {},
 	}
@@ -481,5 +497,21 @@ func TestExcludingDirectories(t *testing.T) {
 	ExcludingDirectories(changedFiles)
 	if !reflect.DeepEqual(changedFiles, expected) {
 		t.Fatal("TestExcludingDirectories overwrote the input argument!")
+	}
+
+	changedFiles = map[string]ChangedFile{
+		c("many"):                              {},
+		c("many/folders"):                      {},
+		c("many/folders/for"):                  {},
+		c("many/folders/for/sure"):             {},
+		c("many/folders/for/sure/oh"):          {},
+		c("many/folders/for/sure/oh/yeah.txt"): {},
+	}
+	expected = map[string]ChangedFile{
+		c("many/folders/for/sure/oh/yeah.txt"): {},
+	}
+	got = ExcludingDirectories(changedFiles)
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatal("TestExcludingDirectories did not recursively add directories to the map")
 	}
 }
