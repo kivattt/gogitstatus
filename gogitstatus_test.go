@@ -384,7 +384,7 @@ func TestIncludingDirectories(t *testing.T) {
 	got := IncludingDirectories(changedFiles)
 
 	if !reflect.DeepEqual(got, expected) {
-		t.Fatal("TestIncludingDirectories got an unexpected value")
+		t.Fatal("TestIncludingDirectories (1) got an unexpected value")
 	}
 
 	changedFiles = map[string]ChangedFile{
@@ -412,7 +412,7 @@ func TestIncludingDirectories(t *testing.T) {
 	got = IncludingDirectories(changedFiles)
 
 	if !reflect.DeepEqual(got, expected) {
-		t.Fatal("TestIncludingDirectories got an unexpected value")
+		t.Fatal("TestIncludingDirectories (2) got an unexpected value")
 	}
 
 	empty := map[string]ChangedFile{}
@@ -443,7 +443,7 @@ func TestExcludingDirectories(t *testing.T) {
 	including := IncludingDirectories(changedFiles)
 	excluding := ExcludingDirectories(including)
 	if !reflect.DeepEqual(changedFiles, excluding) {
-		t.Fatal("TestExcludingDirectories got an unexpected value")
+		t.Fatal("TestExcludingDirectories (1) got an unexpected value")
 	}
 
 	changedFiles = map[string]ChangedFile{
@@ -457,7 +457,7 @@ func TestExcludingDirectories(t *testing.T) {
 	}
 	got := ExcludingDirectories(changedFiles)
 	if !reflect.DeepEqual(got, expected) {
-		t.Fatal("TestExcludingDirectories got an unexpected value")
+		t.Fatal("TestExcludingDirectories (2) got an unexpected value")
 	}
 
 	changedFiles = map[string]ChangedFile{
