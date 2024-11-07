@@ -370,15 +370,19 @@ func TestParseGitIndex(t *testing.T) {
 }
 
 func TestIncludingDirectories(t *testing.T) {
+	c := func(path string) string {
+		return filepath.FromSlash(path)
+	}
+
 	changedFiles := map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
 	}
 
 	expected := map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
-		"screenshots":    {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
+		c("screenshots"):    {},
 	}
 
 	got := IncludingDirectories(changedFiles)
@@ -388,25 +392,25 @@ func TestIncludingDirectories(t *testing.T) {
 	}
 
 	changedFiles = map[string]ChangedFile{
-		"main.go":                        {},
-		"screenshots/hi":                 {},
-		"folder/anotherfolder/hello.txt": {},
-		"folder/anotherfolder/hi":        {},
-		"folder/file.txt":                {},
-		"folder/anotherfile.txt":         {},
+		c("main.go"):                        {},
+		c("screenshots/hi"):                 {},
+		c("folder/anotherfolder/hello.txt"): {},
+		c("folder/anotherfolder/hi"):        {},
+		c("folder/file.txt"):                {},
+		c("folder/anotherfile.txt"):         {},
 	}
 
 	expected = map[string]ChangedFile{
-		"main.go":                        {},
-		"screenshots/hi":                 {},
-		"folder/anotherfolder/hello.txt": {},
-		"folder/anotherfolder/hi":        {},
-		"folder/file.txt":                {},
-		"folder/anotherfile.txt":         {},
+		c("main.go"):                        {},
+		c("screenshots/hi"):                 {},
+		c("folder/anotherfolder/hello.txt"): {},
+		c("folder/anotherfolder/hi"):        {},
+		c("folder/file.txt"):                {},
+		c("folder/anotherfile.txt"):         {},
 
-		"screenshots":          {},
-		"folder/anotherfolder": {},
-		"folder":               {},
+		c("screenshots"):          {},
+		c("folder/anotherfolder"): {},
+		c("folder"):               {},
 	}
 
 	got = IncludingDirectories(changedFiles)
@@ -422,12 +426,12 @@ func TestIncludingDirectories(t *testing.T) {
 	}
 
 	changedFiles = map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
 	}
 	expected = map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
 	}
 	IncludingDirectories(changedFiles)
 	if !reflect.DeepEqual(changedFiles, expected) {
@@ -436,9 +440,13 @@ func TestIncludingDirectories(t *testing.T) {
 }
 
 func TestExcludingDirectories(t *testing.T) {
+	c := func(path string) string {
+		return filepath.FromSlash(path)
+	}
+
 	changedFiles := map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
 	}
 	including := IncludingDirectories(changedFiles)
 	excluding := ExcludingDirectories(including)
@@ -447,13 +455,13 @@ func TestExcludingDirectories(t *testing.T) {
 	}
 
 	changedFiles = map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
-		"screenshots":    {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
+		c("screenshots"):    {},
 	}
 	expected := map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
 	}
 	got := ExcludingDirectories(changedFiles)
 	if !reflect.DeepEqual(got, expected) {
@@ -461,14 +469,14 @@ func TestExcludingDirectories(t *testing.T) {
 	}
 
 	changedFiles = map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
-		"screenshots":    {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
+		c("screenshots"):    {},
 	}
 	expected = map[string]ChangedFile{
-		"main.go":        {},
-		"screenshots/hi": {},
-		"screenshots":    {},
+		c("main.go"):        {},
+		c("screenshots/hi"): {},
+		c("screenshots"):    {},
 	}
 	ExcludingDirectories(changedFiles)
 	if !reflect.DeepEqual(changedFiles, expected) {
