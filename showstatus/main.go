@@ -20,6 +20,10 @@ func main() {
 
 	paths, err := gogitstatus.Status(path)
 
+	// These should cancel out eachother:
+	//paths = gogitstatus.IncludingDirectories(paths)
+	//paths = gogitstatus.ExcludingDirectories(paths)
+
 	if err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)

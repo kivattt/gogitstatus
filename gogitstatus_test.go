@@ -369,7 +369,7 @@ func TestParseGitIndex(t *testing.T) {
 	}
 }
 
-func TestChangedFilesIncludingDirectories(t *testing.T) {
+func TestIncludingDirectories(t *testing.T) {
 	changedFiles := map[string]ChangedFile{
 		"main.go":        {},
 		"screenshots/hi": {},
@@ -381,10 +381,10 @@ func TestChangedFilesIncludingDirectories(t *testing.T) {
 		"screenshots":    {},
 	}
 
-	got := ChangedFilesIncludingDirectories(changedFiles)
+	got := IncludingDirectories(changedFiles)
 
 	if !reflect.DeepEqual(got, expected) {
-		t.Fatal("TestChangedFilesIncludingDirectories got an unexpected value")
+		t.Fatal("TestIncludingDirectories got an unexpected value")
 	}
 
 	changedFiles = map[string]ChangedFile{
@@ -409,9 +409,69 @@ func TestChangedFilesIncludingDirectories(t *testing.T) {
 		"folder":               {},
 	}
 
-	got = ChangedFilesIncludingDirectories(changedFiles)
+	got = IncludingDirectories(changedFiles)
 
 	if !reflect.DeepEqual(got, expected) {
-		t.Fatal("TestChangedFilesIncludingDirectories got an unexpected value")
+		t.Fatal("TestIncludingDirectories got an unexpected value")
+	}
+
+	empty := map[string]ChangedFile{}
+	got = IncludingDirectories(empty)
+	if !reflect.DeepEqual(got, empty) {
+		t.Fatal("TestIncludingDirectories expected no values, but got some")
+	}
+
+	changedFiles = map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+	}
+	expected = map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+	}
+	IncludingDirectories(changedFiles)
+	if !reflect.DeepEqual(changedFiles, expected) {
+		t.Fatal("TestIncludingDirectories overwrote the input argument!")
+	}
+}
+
+func TestExcludingDirectories(t *testing.T) {
+	changedFiles := map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+	}
+	including := IncludingDirectories(changedFiles)
+	excluding := ExcludingDirectories(including)
+	if !reflect.DeepEqual(changedFiles, excluding) {
+		t.Fatal("TestExcludingDirectories got an unexpected value")
+	}
+
+	changedFiles = map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+		"screenshots":    {},
+	}
+	expected := map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+	}
+	got := ExcludingDirectories(changedFiles)
+	if !reflect.DeepEqual(got, expected) {
+		t.Fatal("TestExcludingDirectories got an unexpected value")
+	}
+
+	changedFiles = map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+		"screenshots":    {},
+	}
+	expected = map[string]ChangedFile{
+		"main.go":        {},
+		"screenshots/hi": {},
+		"screenshots":    {},
+	}
+	ExcludingDirectories(changedFiles)
+	if !reflect.DeepEqual(changedFiles, expected) {
+		t.Fatal("TestExcludingDirectories overwrote the input argument!")
 	}
 }

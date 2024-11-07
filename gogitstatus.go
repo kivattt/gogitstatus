@@ -485,15 +485,41 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 }
 
 // Use this function to also include directories containing unstaged/untracked files
-// by passing the output of Status() or StatusWithContext() through this function
-func ChangedFilesIncludingDirectories(changedFiles map[string]ChangedFile) map[string]ChangedFile {
-	ret := changedFiles
+// by passing the output of Status() or StatusWithContext() through this function.
+// Does not modify the changedFiles input argument.
+func IncludingDirectories(changedFiles map[string]ChangedFile) map[string]ChangedFile {
+	ret := make(map[string]ChangedFile)
+	for k, v := range changedFiles {
+		ret[k] = v
+	}
+
 	for path, e := range changedFiles {
 		if !strings.ContainsRune(path, os.PathSeparator) {
 			continue
 		}
 
 		ret[filepath.Dir(path)] = e
+	}
+
+	return ret
+}
+
+// Meant to essentially undo IncludingDirectories()
+// by passing the output of IncludingDirectories() through this function.
+// Use this function to exclude directories containing unstaged/untracked files.
+// Does not modify the changedFiles input argument.
+func ExcludingDirectories(changedFiles map[string]ChangedFile) map[string]ChangedFile {
+	ret := make(map[string]ChangedFile)
+	for k, v := range changedFiles {
+		ret[k] = v
+	}
+
+	for path := range ret {
+		if !strings.ContainsRune(path, os.PathSeparator) {
+			continue
+		}
+
+		delete(ret, filepath.Dir(path))
 	}
 
 	return ret
