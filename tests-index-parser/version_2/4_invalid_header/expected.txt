@@ -1,1 +1,1 @@
-Error text:Invalid header, missing "DIRC"
+Error text:invalid header, missing "DIRC"

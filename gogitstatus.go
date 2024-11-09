@@ -83,7 +83,7 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	}
 
 	if !stat.Mode().IsRegular() {
-		return nil, errors.New("Not a regular file")
+		return nil, errors.New("not a regular file")
 	}
 
 	file, err := os.Open(path)
@@ -109,12 +109,12 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	}
 
 	if !bytes.HasPrefix(headerBytes, []byte{'D', 'I', 'R', 'C'}) {
-		return nil, errors.New("Invalid header, missing \"DIRC\"")
+		return nil, errors.New("invalid header, missing \"DIRC\"")
 	}
 
 	version := binary.BigEndian.Uint32(headerBytes[4:8])
 	if version != 2 {
-		return nil, errors.New("Unsupported version: " + strconv.FormatInt(int64(version), 10))
+		return nil, errors.New("unsupported version: " + strconv.FormatInt(int64(version), 10))
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
@@ -128,13 +128,13 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 		default:
 			// Seek to 64-bit modified time
 			if _, err := reader.Seek(8, 1); err != nil {
-				return nil, errors.New("Invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
 			// Read 64-bit modified time
 			mTimeBytes := make([]byte, 8) // 64 bits
 			if _, err := io.ReadFull(reader, mTimeBytes); err != nil {
-				return nil, errors.New("Invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
 			mTimeSeconds := binary.BigEndian.Uint32(mTimeBytes[:4])
@@ -142,31 +142,31 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 
 			// Seek to 32-bit mode
 			if _, err := reader.Seek(8, 1); err != nil { // 64 bits
-				return nil, errors.New("Invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to seek to 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
 			// Read 32-bit mode
 			bytes := make([]byte, 4) // 32 bits
 			if _, err := io.ReadFull(reader, bytes); err != nil {
-				return nil, errors.New("Invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
 			mode := binary.BigEndian.Uint32(bytes)
 
 			// Seek to "object name" (hash data)
 			if _, err := reader.Seek(12, 1); err != nil { // 96 bits
-				return nil, errors.New("Invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
 			// Read hash data
 			hash := make([]byte, 20) // 160 bits
 			if _, err := io.ReadFull(reader, hash); err != nil {
-				return nil, errors.New("Invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
 			flagsBytes := make([]byte, 2) // 16 bits 'flags' field
 			if _, err := io.ReadFull(reader, flagsBytes); err != nil {
-				return nil, errors.New("Invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
+				return nil, errors.New("invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
 			flags := binary.BigEndian.Uint16(flagsBytes)
@@ -182,7 +182,7 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			} else {
 				bytes := make([]byte, nameLength)
 				if _, err := io.ReadFull(reader, bytes); err != nil {
-					return nil, errors.New("Invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+					return nil, errors.New("invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 				}
 
 				pathName.Write(bytes)
@@ -195,12 +195,12 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 
 				b := make([]byte, n)
 				if _, err = io.ReadFull(reader, b); err != nil {
-					return nil, errors.New("Invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
+					return nil, errors.New("invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 				}
 
 				for _, e := range b {
 					if e != 0 {
-						return nil, errors.New("Non-null byte found in null padding of length " + strconv.FormatUint(uint64(n), 10))
+						return nil, errors.New("non-null byte found in null padding of length " + strconv.FormatUint(uint64(n), 10))
 					}
 				}
 			}
@@ -266,12 +266,12 @@ type WhatChanged int
 const (
 	// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/statinfo.h#L35
 	MTIME_CHANGED WhatChanged = 0x0001
-	CTIME_CHANGED             = 0x0002
-	OWNER_CHANGED             = 0x0004
-	MODE_CHANGED              = 0x0008
-	INODE_CHANGED             = 0x0010 // Use or not?
-	DATA_CHANGED              = 0x0020
-	TYPE_CHANGED              = 0x0040
+	CTIME_CHANGED WhatChanged = 0x0002
+	OWNER_CHANGED WhatChanged = 0x0004
+	MODE_CHANGED  WhatChanged = 0x0008
+	INODE_CHANGED WhatChanged = 0x0010 // Use or not?
+	DATA_CHANGED  WhatChanged = 0x0020
+	TYPE_CHANGED  WhatChanged = 0x0040
 
 	DELETED = 0x0080
 )
@@ -380,13 +380,6 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 type ChangedFile struct {
 	WhatChanged WhatChanged
 	Untracked   bool // true = Untracked, false = Unstaged
-}
-
-func bool2Str(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
 }
 
 func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
@@ -544,7 +537,7 @@ func StatusWithContext(ctx context.Context, path string) (map[string]ChangedFile
 	dotGitPath := filepath.Join(path, ".git")
 	stat, err := os.Stat(dotGitPath)
 	if err != nil || !stat.IsDir() {
-		return nil, errors.New("Not a Git repository")
+		return nil, errors.New("not a Git repository")
 	}
 
 	return StatusRaw(ctx, path, filepath.Join(dotGitPath, "index"), true)
@@ -554,7 +547,7 @@ func StatusWithContext(ctx context.Context, path string) (map[string]ChangedFile
 func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	stat, err := os.Stat(path)
 	if err != nil || !stat.IsDir() {
-		return nil, errors.New("Path does not exist: " + path)
+		return nil, errors.New("path does not exist: " + path)
 	}
 
 	// If .git/index file is missing, all files are unstaged/untracked
@@ -565,7 +558,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 
 	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
 	if err != nil {
-		return nil, errors.New("Unable to read " + gitIndexPath + ": " + err.Error())
+		return nil, errors.New("unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
 	paths, err := AccumulatePathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
