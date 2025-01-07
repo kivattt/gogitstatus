@@ -1,4 +1,4 @@
-//go:build !windows && !linux
+//go:build linux
 
 package gogitstatus
 
@@ -9,5 +9,5 @@ import (
 
 func isCTimeUnchanged(stat os.FileInfo, mTimeSec, mTimeNsec int64) bool {
 	unixStat := stat.Sys().(*syscall.Stat_t)
-	return unixStat.Ctimespec.Sec == mTimeSec && unixStat.Ctimespec.Nsec == mTimeNsec
+	return unixStat.Ctim.Sec == mTimeSec && unixStat.Ctim.Nsec == mTimeNsec
 }
