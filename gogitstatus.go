@@ -540,6 +540,21 @@ func ExcludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 	return ret
 }
 
+// Returns changed files without those that were deleted
+// Does not modify the changedFiles input argument.
+func ExcludingDeleted(changedFiles map[string]ChangedFile) map[string]ChangedFile {
+	ret := make(map[string]ChangedFile)
+	for path, e := range changedFiles {
+		if e.WhatChanged&DELETED != 0 {
+			continue
+		}
+
+		ret[path] = e
+	}
+
+	return ret
+}
+
 // Takes in the root path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func Status(path string) (map[string]ChangedFile, error) {
 	ctx := context.WithoutCancel(context.Background())
