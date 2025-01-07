@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/sabhiram/go-gitignore"
@@ -352,12 +351,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	mTimeUnchanged := stat.ModTime() == time.Unix(int64(entry.ModifiedTimeSeconds), int64(entry.ModifiedTimeNanoSeconds))
 
-	cTimeUnchanged := true
-	if runtime.GOOS == "linux" {
-		unixStat := stat.Sys().(*syscall.Stat_t)
-		//cTimeUnchanged = time.Unix(unixStat.Ctim.Sec, unixStat.Ctim.Nsec).Equal(time.Unix(int64(entry.MetadataChangedTimeSeconds), int64(entry.MetadataChangedTimeNanoSeconds)))
-		cTimeUnchanged = unixStat.Ctim.Sec == int64(entry.MetadataChangedTimeSeconds) && unixStat.Ctim.Nano() == int64(entry.MetadataChangedTimeNanoSeconds)
-	}
+	cTimeUnchanged := isCTimeUnchanged(stat, int64(entry.ModifiedTimeSeconds), int64(entry.MetadataChangedTimeNanoSeconds))
 
 	// TODO: Use ctime to prevent hash-check, and mtime to prevent mode check? Look into Git source code for this
 	if mTimeUnchanged && cTimeUnchanged {
