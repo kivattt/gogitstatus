@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/sabhiram/go-gitignore"
@@ -21,10 +22,12 @@ import (
 
 // A small subset of a Git index entry
 type GitIndexEntry struct {
-	ModifiedTimeSeconds     uint32
-	ModifiedTimeNanoSeconds uint32
-	Mode                    uint32 // Contains the file type and unix permission bits
-	Hash                    []byte // 20 bytes for the standard SHA-1
+	MetadataChangedTimeSeconds     uint32 // ctime
+	MetadataChangedTimeNanoSeconds uint32 // ctime
+	ModifiedTimeSeconds            uint32
+	ModifiedTimeNanoSeconds        uint32
+	Mode                           uint32 // Contains the file type and unix permission bits
+	Hash                           []byte // 20 bytes for the standard SHA-1
 }
 
 // This function is only used for path lengths in the .git/index longer than 0xffe bytes
@@ -126,10 +129,14 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			// Seek to 64-bit modified time
-			if _, err := reader.Seek(8, 1); err != nil {
-				return nil, errors.New("invalid size, unable to seek to 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			// Read 64-bit metadata changed time
+			cTimeBytes := make([]byte, 8) // 64 bits
+			if _, err := io.ReadFull(reader, cTimeBytes); err != nil {
+				return nil, errors.New("invalid size, unable to read 64-bit metadata changed time (ctime) within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
+
+			ctimeSeconds := binary.BigEndian.Uint32(cTimeBytes[:4])
+			ctimeNanoSeconds := binary.BigEndian.Uint32(cTimeBytes[4:])
 
 			// Read 64-bit modified time
 			mTimeBytes := make([]byte, 8) // 64 bits
@@ -205,7 +212,14 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 				}
 			}
 
-			entries[pathName.String()] = GitIndexEntry{ModifiedTimeSeconds: mTimeSeconds, ModifiedTimeNanoSeconds: mTimeNanoSeconds, Mode: mode, Hash: hash}
+			entries[pathName.String()] = GitIndexEntry{
+				MetadataChangedTimeSeconds:     ctimeSeconds,
+				MetadataChangedTimeNanoSeconds: ctimeNanoSeconds,
+				ModifiedTimeSeconds:            mTimeSeconds,
+				ModifiedTimeNanoSeconds:        mTimeNanoSeconds,
+				Mode:                           mode,
+				Hash:                           hash,
+			}
 		}
 	}
 
@@ -265,7 +279,7 @@ type WhatChanged int
 
 const (
 	// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/statinfo.h#L35
-	MTIME_CHANGED WhatChanged = 0x0001
+	MTIME_CHANGED WhatChanged = 0x0001 // We don't use this
 	CTIME_CHANGED WhatChanged = 0x0002
 	OWNER_CHANGED WhatChanged = 0x0004
 	MODE_CHANGED  WhatChanged = 0x0008
@@ -334,14 +348,21 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 		return 0 // Deleted file
 	}
 
-	// TODO: Use ctime to prevent hash-check, and mtime to prevent mode check? Look into Git source code for this
-	if stat.ModTime() == time.Unix(int64(entry.ModifiedTimeSeconds), int64(entry.ModifiedTimeNanoSeconds)) {
-		return 0 // Modified time unchanged
-	} /* else {
-		whatChanged |= MTIME_CHANGED
-	}*/
-
 	var whatChanged WhatChanged
+
+	mTimeUnchanged := stat.ModTime() == time.Unix(int64(entry.ModifiedTimeSeconds), int64(entry.ModifiedTimeNanoSeconds))
+
+	cTimeUnchanged := true
+	if runtime.GOOS == "linux" {
+		unixStat := stat.Sys().(*syscall.Stat_t)
+		//cTimeUnchanged = time.Unix(unixStat.Ctim.Sec, unixStat.Ctim.Nsec).Equal(time.Unix(int64(entry.MetadataChangedTimeSeconds), int64(entry.MetadataChangedTimeNanoSeconds)))
+		cTimeUnchanged = unixStat.Ctim.Sec == int64(entry.MetadataChangedTimeSeconds) && unixStat.Ctim.Nano() == int64(entry.MetadataChangedTimeNanoSeconds)
+	}
+
+	// TODO: Use ctime to prevent hash-check, and mtime to prevent mode check? Look into Git source code for this
+	if mTimeUnchanged && cTimeUnchanged {
+		return 0
+	}
 
 	switch entry.Mode & OBJECT_TYPE_MASK {
 	case REGULAR_FILE:
