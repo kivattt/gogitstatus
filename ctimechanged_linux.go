@@ -9,5 +9,5 @@ import (
 
 func isCTimeUnchanged(stat os.FileInfo, mTimeSec, mTimeNsec int64) bool {
 	unixStat := stat.Sys().(*syscall.Stat_t)
-	return unixStat.Ctim.Sec == mTimeSec && unixStat.Ctim.Nsec == mTimeNsec
+	return int64(unixStat.Ctim.Sec) == mTimeSec && int64(unixStat.Ctim.Nsec) == mTimeNsec
 }
