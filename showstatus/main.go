@@ -20,6 +20,9 @@ func main() {
 
 	paths, err := gogitstatus.Status(path)
 
+	// Removes deleted paths
+	//paths = gogitstatus.ExcludingDeleted(paths)
+
 	// These should cancel out eachother:
 	//paths = gogitstatus.IncludingDirectories(paths)
 	//paths = gogitstatus.ExcludingDirectories(paths)
