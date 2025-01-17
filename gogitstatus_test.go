@@ -43,6 +43,7 @@ func printGray(text string) {
 }
 
 // Copied from: https://stackoverflow.com/a/24792688
+// Modified to support symlinks (except on Windows)
 func extractZipArchive(zipFilePath, destination string) error {
 	r, err := zip.OpenReader(zipFilePath)
 	if err != nil {
@@ -77,7 +78,7 @@ func extractZipArchive(zipFilePath, destination string) error {
 
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(path, f.Mode())
-		} else if f.Mode()&os.ModeSymlink != 0 { // Don't do on Windows?
+		} else if f.Mode()&os.ModeSymlink != 0 && runtime.GOOS != "windows" { // Don't do on Windows?
 			rc, err := f.Open()
 			if err != nil {
 				return err
