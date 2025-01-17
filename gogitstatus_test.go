@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -152,7 +151,8 @@ func TestStatusRaw(t *testing.T) {
 	testFailed := false
 
 	for _, test := range tests {
-		filesPath := filepath.Join(testsPath, test.Name(), "files")
+		filesExtractPath := filepath.Join(testsPath, test.Name(), "files")
+		defer os.RemoveAll(filesExtractPath)
 		expectedPath := filepath.Join(testsPath, test.Name(), "expected.txt")
 		if runtime.GOOS == "windows" {
 			expectedWindowsPath := filepath.Join(testsPath, test.Name(), "expected_windows.txt")
@@ -212,21 +212,15 @@ func TestStatusRaw(t *testing.T) {
 			expectedChangedFiles[pathText] = ChangedFile{WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked}
 		}
 
-		_, err = os.Stat(filesPath)
+		_, err = os.Stat(filesExtractPath)
 		if err != nil {
 			zipFilePath := filepath.Join(testsPath, test.Name(), "files.zip")
-			err := extractZipArchive(zipFilePath, filesPath)
+			err := extractZipArchive(zipFilePath, filesExtractPath)
 			if err != nil {
-				log.Fatal(err)
-			} else {
-				defer func() {
-					os.RemoveAll(filesPath)
-				}()
+				t.Fatal(err)
 			}
 		}
-		changedFiles, err := Status(filesPath)
-		/*ctx := context.WithoutCancel(context.Background())
-		changedFiles, err := StatusRaw(ctx, filesPath, indexPath, true)*/
+		changedFiles, err := Status(filesExtractPath)
 
 		if expectedAnyError && err == nil {
 			fmt.Println("expected any error, but got nil")
