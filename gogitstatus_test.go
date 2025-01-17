@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -76,6 +77,25 @@ func extractZipArchive(zipFilePath, destination string) error {
 
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(path, f.Mode())
+		} else if f.Mode()&os.ModeSymlink != 0 { // Don't do on Windows?
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+
+			targetPath, err := io.ReadAll(rc)
+			if err != nil {
+				return err
+			}
+
+			if err := rc.Close(); err != nil {
+				return err
+			}
+
+			err = os.Symlink(string(targetPath), path)
+			if err != nil {
+				return err
+			}
 		} else {
 			os.MkdirAll(filepath.Dir(path), f.Mode())
 			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
@@ -132,7 +152,6 @@ func TestStatusRaw(t *testing.T) {
 
 	for _, test := range tests {
 		filesPath := filepath.Join(testsPath, test.Name(), "files")
-		indexPath := filepath.Join(testsPath, test.Name(), "index")
 		expectedPath := filepath.Join(testsPath, test.Name(), "expected.txt")
 		if runtime.GOOS == "windows" {
 			expectedWindowsPath := filepath.Join(testsPath, test.Name(), "expected_windows.txt")
@@ -196,14 +215,17 @@ func TestStatusRaw(t *testing.T) {
 		if err != nil {
 			zipFilePath := filepath.Join(testsPath, test.Name(), "files.zip")
 			err := extractZipArchive(zipFilePath, filesPath)
-			if err == nil {
+			if err != nil {
+				log.Fatal(err)
+			} else {
 				defer func() {
 					os.RemoveAll(filesPath)
 				}()
 			}
 		}
-		ctx := context.WithoutCancel(context.Background())
-		changedFiles, err := StatusRaw(ctx, filesPath, indexPath, true)
+		changedFiles, err := Status(filesPath)
+		/*ctx := context.WithoutCancel(context.Background())
+		changedFiles, err := StatusRaw(ctx, filesPath, indexPath, true)*/
 
 		if expectedAnyError && err == nil {
 			fmt.Println("expected any error, but got nil")
