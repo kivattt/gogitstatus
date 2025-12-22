@@ -3,6 +3,18 @@ Remember the `-y` flag to allow zipping symlinks
 zip -y -r files.zip * .git
 ```
 
+## Structure of .zip tests
+
+Our only requirement for something to be a git repository is for there to be a .git folder.
+This is inconsistent with `git status`, which presumably checks for some other files to consider it a repository.
+
+Because of this, we need tests to atleast have an empty .git folder in them (unless they're specifically checking if a .git folder is missing AKA not-a-repository).
+An empty .git folder is like a brand new `git init` repository, because it is missing the `.git/index` file, meaning everything is untracked.
+
+Most tests should have a `.git/index` file.
+
+## How to create an "empty" .zip file
+
 The `tests-statusraw/2_missing_files/files.zip` file is an empty zip file generated with this:\
 https://stackoverflow.com/a/64466237
 
