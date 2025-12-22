@@ -1,6 +1,6 @@
 Remember the `-y` flag to allow zipping symlinks
 ```
-zip -y -r files.zip * .git
+zip -y -r files.zip * .git .gitignore
 ```
 
 ## Structure of .zip tests
