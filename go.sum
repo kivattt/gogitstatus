@@ -2,6 +2,8 @@ github.com/botondmester/goignore v0.0.0-20251223144105-6eba8c84e6cf h1:bKycfTL/z
 github.com/botondmester/goignore v0.0.0-20251223144105-6eba8c84e6cf/go.mod h1:Y6kZdVPUsR9nnp7OpR8Jc18SdqRWop3VMjLVnawWdwo=
 github.com/botondmester/goignore v0.0.0-20251223201408-2ab996a3b931 h1:qeTmS0Lb3eZkjH+Tp9wPqXVtjfz8Kweb2xNGgIDWiOE=
 github.com/botondmester/goignore v0.0.0-20251223201408-2ab996a3b931/go.mod h1:Y6kZdVPUsR9nnp7OpR8Jc18SdqRWop3VMjLVnawWdwo=
+github.com/botondmester/goignore v0.0.0-20251223211616-1a8d6992ea97 h1:PqKMo9q2t2P4NuN6KZb7fYoasq/JyXUXRuvM6fJgQe4=
+github.com/botondmester/goignore v0.0.0-20251223211616-1a8d6992ea97/go.mod h1:Y6kZdVPUsR9nnp7OpR8Jc18SdqRWop3VMjLVnawWdwo=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
