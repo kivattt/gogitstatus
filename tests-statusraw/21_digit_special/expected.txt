@@ -1,0 +1,2 @@
+Untracked a.txt
+Untracked .gitignore
