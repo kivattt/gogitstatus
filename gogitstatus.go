@@ -16,7 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sabhiram/go-gitignore"
+//	"github.com/sabhiram/go-gitignore"
+	ignore "github.com/botondmester/goignore"
 )
 
 // A small subset of a Git index entry
