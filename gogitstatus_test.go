@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -127,6 +128,17 @@ func extractZipArchive(zipFilePath, destination string) error {
 	return nil
 }
 
+func getNumberFromFolderName(folderName string) (int, error) {
+	numberString := ""
+	for _, c := range folderName {
+		if c == '_' {
+			break
+		}
+		numberString += string(c)
+	}
+	return strconv.Atoi(numberString)
+}
+
 func TestStatusRaw(t *testing.T) {
 	testsPath := "./tests-statusraw"
 	tests, err := os.ReadDir(testsPath)
@@ -150,6 +162,18 @@ func TestStatusRaw(t *testing.T) {
 
 	testFailed := false
 
+	slices.SortFunc(tests, func(a, b os.DirEntry) int {
+		num1, err := getNumberFromFolderName(a.Name())
+		if err != nil {
+			t.Fatal("Missing number prefix like \"25_\" in folder named:", a.Name())
+		}
+		num2, err := getNumberFromFolderName(b.Name())
+		if err != nil {
+			t.Fatal("Missing number prefix like \"25_\" in folder named:", b.Name())
+		}
+
+		return num1 - num2
+	})
 	for _, test := range tests {
 		filesExtractPath := filepath.Join(testsPath, test.Name(), "files")
 		defer os.RemoveAll(filesExtractPath)
@@ -308,6 +332,18 @@ func TestParseGitIndex(t *testing.T) {
 			continue
 		}
 
+		slices.SortFunc(versionTests, func(a, b os.DirEntry) int {
+			num1, err := getNumberFromFolderName(a.Name())
+			if err != nil {
+				t.Fatal("Missing number prefix like \"25_\" in folder named:", a.Name())
+			}
+			num2, err := getNumberFromFolderName(b.Name())
+			if err != nil {
+				t.Fatal("Missing number prefix like \"25_\" in folder named:", b.Name())
+			}
+
+			return num1 - num2
+		})
 		for _, versionTest := range versionTests {
 			indexPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "index")
 			expectedPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "expected.txt")
