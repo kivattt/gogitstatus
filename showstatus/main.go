@@ -66,11 +66,11 @@ func main() {
 		whatChangedStr := ""
 		if elem.WhatChanged&gogitstatus.DELETED != 0 {
 			whatChangedStr = "deleted:   "
-		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
+		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 || elem.WhatChanged&gogitstatus.MODE_CHANGED != 0 {
 			whatChangedStr = "modified:  "
 		}
 
-		//whatChangedStr := gogitstatus.WhatChangedToString(elem.WhatChanged)
+		//whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
@@ -98,11 +98,11 @@ func main() {
 		whatChangedStr := ""
 		if elem.WhatChanged&gogitstatus.DELETED != 0 {
 			whatChangedStr = "deleted:   "
-		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
+		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 || elem.WhatChanged&gogitstatus.MODE_CHANGED != 0 {
 			whatChangedStr = "modified:  "
 		}
 
-		//whatChangedStr := gogitstatus.WhatChangedToString(elem.WhatChanged)
+		//whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
