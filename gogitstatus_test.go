@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func printRed(text string) {
@@ -420,6 +421,31 @@ func TestParseGitIndex(t *testing.T) {
 	if testFailed {
 		t.Fatal("See above ^")
 	}
+}
+
+func TestBenchmarkParseGitIndex(t *testing.T) {
+	howManyTimes := 10
+	fmt.Print("[Benchmark] Calling ParseGitIndex() on Linux .git/index ", howManyTimes, " times:")
+
+	indexPath := "benchmark_indexes/torvalds_linux"
+	expectedEntriesLength := 92192
+
+	start := time.Now()
+
+	for i := 0; i < howManyTimes; i++ {
+		ctx := context.WithoutCancel(context.Background())
+		entries, err := ParseGitIndex(ctx, indexPath)
+		if err != nil {
+			t.Fatal("Got an error while benchmarking ParseGitIndex(): ", err)
+		}
+
+		if len(entries) != expectedEntriesLength {
+			t.Fatal("Expected ", expectedEntriesLength, " entries, but got: ", len(entries))
+		}
+	}
+
+	duration := time.Since(start)
+	fmt.Println(" " + duration.String())
 }
 
 func TestIncludingDirectories(t *testing.T) {
