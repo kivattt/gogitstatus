@@ -92,6 +92,7 @@ func main() {
 		untrackedKeysSorted[i] = key
 		i++
 	}
+	sort.Strings(untrackedKeysSorted)
 	for _, key := range untrackedKeysSorted {
 		elem := untracked[key]
 		whatChangedStr := ""
