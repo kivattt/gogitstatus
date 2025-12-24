@@ -6,11 +6,17 @@ import (
 	"sort"
 
 	"github.com/kivattt/gogitstatus"
+	"golang.org/x/term"
 	//	"github.com/pkg/profile"
 )
 
 func main() {
 	//defer profile.Start(profile.CPUProfile).Stop()
+
+	useColor := true
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		useColor = false // Output is piped, don't colorize the output
+	}
 
 	args := os.Args
 
@@ -59,16 +65,21 @@ func main() {
 		elem := unstaged[key]
 		whatChangedStr := ""
 		if elem.WhatChanged&gogitstatus.DELETED != 0 {
-			whatChangedStr = "deleted:  "
+			whatChangedStr = "deleted:   "
 		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
-			whatChangedStr = "modified: "
+			whatChangedStr = "modified:  "
 		}
 
 		//whatChangedStr := gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
+
+		if useColor {
+			fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
+		} else {
+			fmt.Println("        " + whatChangedStr + key)
+		}
 	}
 
 	if len(untracked) > 0 {
@@ -85,15 +96,20 @@ func main() {
 		elem := untracked[key]
 		whatChangedStr := ""
 		if elem.WhatChanged&gogitstatus.DELETED != 0 {
-			whatChangedStr = "deleted:  "
+			whatChangedStr = "deleted:   "
 		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
-			whatChangedStr = "modified: "
+			whatChangedStr = "modified:  "
 		}
 
 		//whatChangedStr := gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
+
+		if useColor {
+			fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
+		} else {
+			fmt.Println("        " + whatChangedStr + key)
+		}
 	}
 }
