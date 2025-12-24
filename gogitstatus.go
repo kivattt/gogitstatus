@@ -123,6 +123,12 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
 	entries := make(map[string]GitIndexEntry)
 
+	cTimeBytes := make([]byte, 8) // 64 bits
+	mTimeBytes := make([]byte, 8) // 64 bits
+	modeBytes := make([]byte, 4) // 32 bits
+	hash := make([]byte, 20) // 160 bits
+	flagsBytes := make([]byte, 2) // 16 bits 'flags' field
+
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
 		select {
@@ -130,7 +136,6 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			return nil, ctx.Err()
 		default:
 			// Read 64-bit metadata changed time
-			cTimeBytes := make([]byte, 8) // 64 bits
 			if _, err := io.ReadFull(reader, cTimeBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 64-bit metadata changed time (ctime) within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
@@ -139,7 +144,6 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			ctimeNanoSeconds := binary.BigEndian.Uint32(cTimeBytes[4:])
 
 			// Read 64-bit modified time
-			mTimeBytes := make([]byte, 8) // 64 bits
 			if _, err := io.ReadFull(reader, mTimeBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
@@ -153,12 +157,11 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			}
 
 			// Read 32-bit mode
-			bytes := make([]byte, 4) // 32 bits
-			if _, err := io.ReadFull(reader, bytes); err != nil {
+			if _, err := io.ReadFull(reader, modeBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
-			mode := binary.BigEndian.Uint32(bytes)
+			mode := binary.BigEndian.Uint32(modeBytes)
 
 			// Seek to "object name" (hash data)
 			if _, err := reader.Seek(12, 1); err != nil { // 96 bits
@@ -166,12 +169,10 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			}
 
 			// Read hash data
-			hash := make([]byte, 20) // 160 bits
 			if _, err := io.ReadFull(reader, hash); err != nil {
 				return nil, errors.New("invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
-			flagsBytes := make([]byte, 2) // 16 bits 'flags' field
 			if _, err := io.ReadFull(reader, flagsBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
@@ -180,19 +181,19 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			nameLength := flags & 0xfff
 
 			var pathName strings.Builder
-			if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes
+			if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes (SLOW path!)
 				// Read variable-length path name
 				pathName, err = readIndexEntryPathName(reader)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				bytes := make([]byte, nameLength)
-				if _, err := io.ReadFull(reader, bytes); err != nil {
+				nameBytes := make([]byte, nameLength)
+				if _, err := io.ReadFull(reader, nameBytes); err != nil {
 					return nil, errors.New("invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 				}
 
-				pathName.Write(bytes)
+				pathName.Write(nameBytes)
 				entryLength := 40 + 20 + 2 // Entry length so far
 				// Read up to 8 null padding bytes
 				n := 8 - ((int(nameLength) + entryLength) % 8)
