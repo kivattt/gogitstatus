@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/kivattt/gogitstatus"
 	//	"github.com/pkg/profile"
@@ -46,36 +47,53 @@ func main() {
 	if len(unstaged) > 0 {
 		fmt.Println("Changes not staged for commit:")
 	}
-	for k, e := range unstaged {
+
+	unstagedKeysSorted := make([]string, len(unstaged))
+	i := 0
+	for key, _ := range unstaged {
+		unstagedKeysSorted[i] = key
+		i++
+	}
+	sort.Strings(unstagedKeysSorted)
+	for _, key := range unstagedKeysSorted {
+		elem := unstaged[key]
 		whatChangedStr := ""
-		if e.WhatChanged&gogitstatus.DELETED != 0 {
+		if elem.WhatChanged&gogitstatus.DELETED != 0 {
 			whatChangedStr = "deleted:  "
-		} else if e.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
+		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
 			whatChangedStr = "modified: "
 		}
 
-		//whatChangedStr := gogitstatus.WhatChangedToString(e.WhatChanged)
+		//whatChangedStr := gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println("        \x1b[0;31m" + whatChangedStr + k + "\x1b[0m")
+		fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
 	}
 
 	if len(untracked) > 0 {
 		fmt.Println("Untracked files:")
 	}
-	for k, e := range untracked {
+
+	untrackedKeysSorted := make([]string, len(untracked))
+	i = 0
+	for key, _ := range untracked {
+		untrackedKeysSorted[i] = key
+		i++
+	}
+	for _, key := range untrackedKeysSorted {
+		elem := untracked[key]
 		whatChangedStr := ""
-		if e.WhatChanged&gogitstatus.DELETED != 0 {
+		if elem.WhatChanged&gogitstatus.DELETED != 0 {
 			whatChangedStr = "deleted:  "
-		} else if e.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
+		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
 			whatChangedStr = "modified: "
 		}
 
-		//whatChangedStr := gogitstatus.WhatChangedToString(e.WhatChanged)
+		//whatChangedStr := gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println("        \x1b[0;31m" + whatChangedStr + k + "\x1b[0m")
+		fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
 	}
 }
