@@ -300,7 +300,7 @@ func TestParseGitIndex(t *testing.T) {
 
 	printEntries := func(entries map[string]GitIndexEntry) {
 		for path, e := range entries {
-			fmt.Println("    "+strconv.FormatUint(uint64(e.Mode), 8), hex.EncodeToString(e.Hash), path)
+			fmt.Println("    "+strconv.FormatUint(uint64(e.Mode), 8), hex.EncodeToString(e.Hash[:]), path)
 		}
 	}
 
@@ -381,7 +381,7 @@ func TestParseGitIndex(t *testing.T) {
 					continue
 				}
 
-				expectedEntries[pathName] = GitIndexEntry{Hash: sha1HashBytes}
+				expectedEntries[pathName] = GitIndexEntry{Hash: [20]byte(sha1HashBytes)}
 			}
 			file.Close()
 

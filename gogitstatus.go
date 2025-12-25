@@ -27,7 +27,7 @@ type GitIndexEntry struct {
 	ModifiedTimeSeconds            uint32
 	ModifiedTimeNanoSeconds        uint32
 	Mode                           uint32 // Contains the file type and unix permission bits
-	Hash                           []byte // 20 bytes for the standard SHA-1
+	Hash                           [20]byte // 20 bytes for the standard SHA-1
 }
 
 // This function is only used for path lengths in the .git/index longer than 0xffe bytes
@@ -122,7 +122,13 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
-	entries := make(map[string]GitIndexEntry)
+	entries := make(map[string]GitIndexEntry, numEntries)
+
+	flagsBytes := make([]byte, 2) // 16 bits 'flags' field
+	modeBytes := make([]byte, 4) // 32 bits
+	eightBytes := make([]byte, 8) // 64 bits
+	hashBytes := make([]byte, 20) // 160 bits
+	pathNameBuffer := make([]byte, 0xffff) // We allocate enough for the largest possible Git path name length.
 
 	var entryIndex uint32
 	for entryIndex = 0; entryIndex < numEntries; entryIndex++ {
@@ -130,23 +136,21 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			// Read 64-bit metadata changed time
-			cTimeBytes := make([]byte, 8) // 64 bits
-			if _, err := io.ReadFull(reader, cTimeBytes); err != nil {
+			// Read 64-bit metadata changed time (ctime)
+			if _, err := io.ReadFull(reader, eightBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 64-bit metadata changed time (ctime) within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
-			ctimeSeconds := binary.BigEndian.Uint32(cTimeBytes[:4])
-			ctimeNanoSeconds := binary.BigEndian.Uint32(cTimeBytes[4:])
+			ctimeSeconds := binary.BigEndian.Uint32(eightBytes[:4])
+			ctimeNanoSeconds := binary.BigEndian.Uint32(eightBytes[4:])
 
-			// Read 64-bit modified time
-			mTimeBytes := make([]byte, 8) // 64 bits
-			if _, err := io.ReadFull(reader, mTimeBytes); err != nil {
+			// Read 64-bit modified time (mTime)
+			if _, err := io.ReadFull(reader, eightBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 64-bit modified time within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
-			mTimeSeconds := binary.BigEndian.Uint32(mTimeBytes[:4])
-			mTimeNanoSeconds := binary.BigEndian.Uint32(mTimeBytes[4:])
+			mTimeSeconds := binary.BigEndian.Uint32(eightBytes[:4])
+			mTimeNanoSeconds := binary.BigEndian.Uint32(eightBytes[4:])
 
 			// Seek to 32-bit mode
 			if _, err := reader.Seek(8, 1); err != nil { // 64 bits
@@ -154,12 +158,11 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			}
 
 			// Read 32-bit mode
-			bytes := make([]byte, 4) // 32 bits
-			if _, err := io.ReadFull(reader, bytes); err != nil {
+			if _, err := io.ReadFull(reader, modeBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
 
-			mode := binary.BigEndian.Uint32(bytes)
+			mode := binary.BigEndian.Uint32(modeBytes)
 
 			// Seek to "object name" (hash data)
 			if _, err := reader.Seek(12, 1); err != nil { // 96 bits
@@ -167,12 +170,10 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			}
 
 			// Read hash data
-			hash := make([]byte, 20) // 160 bits
-			if _, err := io.ReadFull(reader, hash); err != nil {
+			if _, err := io.ReadFull(reader, hashBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 20-byte SHA-1 hash at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
 
-			flagsBytes := make([]byte, 2) // 16 bits 'flags' field
 			if _, err := io.ReadFull(reader, flagsBytes); err != nil {
 				return nil, errors.New("invalid size, unable to read 2-byte flags field at index " + strconv.FormatUint(uint64(entryIndex), 10))
 			}
@@ -180,7 +181,7 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			flags := binary.BigEndian.Uint16(flagsBytes)
 			nameLength := flags & 0xfff
 
-			var pathName strings.Builder
+			var pathName strings.Builder // TODO: Do we really want this to be a string builder? Might be faster to avoid it entirely?
 			if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes
 				// Read variable-length path name
 				pathName, err = readIndexEntryPathName(reader)
@@ -188,12 +189,11 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 					return nil, err
 				}
 			} else {
-				bytes := make([]byte, nameLength)
-				if _, err := io.ReadFull(reader, bytes); err != nil {
+				if _, err := io.ReadFull(reader, pathNameBuffer[:nameLength]); err != nil {
 					return nil, errors.New("invalid size, unable to read path name of size " + strconv.FormatUint(uint64(nameLength), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 				}
 
-				pathName.Write(bytes)
+				pathName.Write(pathNameBuffer[:nameLength])
 				entryLength := 40 + 20 + 2 // Entry length so far
 				// Read up to 8 null padding bytes
 				n := 8 - ((int(nameLength) + entryLength) % 8)
@@ -201,12 +201,11 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 					n = 8
 				}
 
-				b := make([]byte, n)
-				if _, err = io.ReadFull(reader, b); err != nil {
+				if _, err = io.ReadFull(reader, eightBytes[:n]); err != nil {
 					return nil, errors.New("invalid size, unable to read path name null bytes of size " + strconv.FormatUint(uint64(n), 10) + " at index " + strconv.FormatUint(uint64(entryIndex), 10))
 				}
 
-				for _, e := range b {
+				for _, e := range eightBytes[:n] {
 					if e != 0 {
 						return nil, errors.New("non-null byte found in null padding of length " + strconv.FormatUint(uint64(n), 10))
 					}
@@ -219,7 +218,7 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 				ModifiedTimeSeconds:            mTimeSeconds,
 				ModifiedTimeNanoSeconds:        mTimeNanoSeconds,
 				Mode:                           mode,
-				Hash:                           hash,
+				Hash:                           [20]byte(hashBytes),
 			}
 		}
 	}
@@ -386,7 +385,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	// TODO: Store mtime and ctime to check for change here, as is done in the match_stat_data() function in Git
 
-	if !hashMatches(entryFullPath, stat, entry.Hash) {
+	if !hashMatches(entryFullPath, stat, entry.Hash[:]) {
 		whatChanged |= DATA_CHANGED
 	}
 
