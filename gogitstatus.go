@@ -38,6 +38,7 @@ func readIndexEntryPathName(reader *bytes.Reader) (strings.Builder, error) {
 	// Entry length so far
 	entryLength := 40 + 20 + 2
 
+	// FIXME: Try to do this on the stack instead
 	singleByteSlice := make([]byte, 1)
 	for {
 		_, err := io.ReadFull(reader, singleByteSlice)
