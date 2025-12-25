@@ -56,7 +56,7 @@ func main() {
 
 	unstagedKeysSorted := make([]string, len(unstaged))
 	i := 0
-	for key, _ := range unstaged {
+	for key := range unstaged {
 		unstagedKeysSorted[i] = key
 		i++
 	}
@@ -88,7 +88,7 @@ func main() {
 
 	untrackedKeysSorted := make([]string, len(untracked))
 	i = 0
-	for key, _ := range untracked {
+	for key := range untracked {
 		untrackedKeysSorted[i] = key
 		i++
 	}

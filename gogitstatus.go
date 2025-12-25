@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-//	"github.com/sabhiram/go-gitignore"
+	//	"github.com/sabhiram/go-gitignore"
 	ignore "github.com/botondmester/goignore"
 )
 
@@ -26,7 +26,7 @@ type GitIndexEntry struct {
 	MetadataChangedTimeNanoSeconds uint32 // ctime
 	ModifiedTimeSeconds            uint32
 	ModifiedTimeNanoSeconds        uint32
-	Mode                           uint32 // Contains the file type and unix permission bits
+	Mode                           uint32   // Contains the file type and unix permission bits
 	Hash                           [20]byte // 20 bytes for the standard SHA-1
 }
 
@@ -124,10 +124,10 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
 	entries := make(map[string]GitIndexEntry, numEntries)
 
-	flagsBytes := make([]byte, 2) // 16 bits 'flags' field
-	modeBytes := make([]byte, 4) // 32 bits
-	eightBytes := make([]byte, 8) // 64 bits
-	hashBytes := make([]byte, 20) // 160 bits
+	flagsBytes := make([]byte, 2)          // 16 bits 'flags' field
+	modeBytes := make([]byte, 4)           // 32 bits
+	eightBytes := make([]byte, 8)          // 64 bits
+	hashBytes := make([]byte, 20)          // 160 bits
 	pathNameBuffer := make([]byte, 0xffff) // We allocate enough for the largest possible Git path name length.
 
 	var entryIndex uint32
@@ -182,7 +182,7 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 			nameLength := flags & 0xfff
 
 			var pathName strings.Builder // TODO: Do we really want this to be a string builder? Might be faster to avoid it entirely?
-			if nameLength == 0xfff { // Path name length >= 0xfff, need to manually find null bytes
+			if nameLength == 0xfff {     // Path name length >= 0xfff, need to manually find null bytes
 				// Read variable-length path name
 				pathName, err = readIndexEntryPathName(reader)
 				if err != nil {
