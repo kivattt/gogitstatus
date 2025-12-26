@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	//	"github.com/sabhiram/go-gitignore"
@@ -591,10 +592,16 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		return nil, errors.New("unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	paths, err := AccumulatePathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
-	if err != nil {
-		return nil, err
-	}
+	var paths map[string]ChangedFile
+	var pathsErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		paths, pathsErr = AccumulatePathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
+		wg.Done()
+	}()
+
+	outPaths := make(map[string]ChangedFile)
 
 	// Filter unchanged files
 	for p, entry := range indexEntries {
@@ -605,32 +612,59 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 			pFromSlash := filepath.FromSlash(p)
 			fullPath := filepath.Join(path, pFromSlash)
 
-			_, pathFound := paths[pFromSlash]
+			//_, pathFound := paths[pFromSlash]
+			pathFound := false
 
 			stat, statErr := os.Lstat(fullPath)
 			if statErr != nil {
 				stat = nil // Just to be sure
 
 				if pathFound { // Deleted file
+					panic("unreachable")
 					delete(paths, pFromSlash)
 					continue
 				} else {
 					// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
 
 					// Deleted files need to be added since we previously only added files that already exist on the filesystem
-					paths[pFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
+					//paths[pFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
+					outPaths[pFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
 					continue
 				}
 			}
 
 			whatChanged := fileChanged(entry, fullPath, stat)
 			if whatChanged == 0 {
-				delete(paths, pFromSlash)
+				//delete(outPaths, pFromSlash)
 			} else {
-				paths[pFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+				outPaths[pFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
 			}
 		}
 	}
 
-	return paths, nil
+	wg.Wait()
+
+	if pathsErr != nil {
+		panic("temporary")
+	}
+
+	for p := range indexEntries {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+			pFromSlash := filepath.FromSlash(p)
+			_, pathFound := paths[pFromSlash]
+			if pathFound { // Deleted file
+				delete(paths, pFromSlash)
+			}
+		}
+	}
+
+	// TODO: merge paths and outPaths
+	for k, v := range paths {
+		outPaths[k] = v
+	}
+
+	return outPaths, nil
 }
