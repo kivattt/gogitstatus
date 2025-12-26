@@ -275,7 +275,7 @@ func hashMatches(path string, stat os.FileInfo, hash []byte) bool {
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }
 
-type WhatChanged int
+type WhatChanged uint8
 
 const (
 	// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/statinfo.h#L35
