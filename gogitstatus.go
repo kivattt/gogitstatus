@@ -104,10 +104,16 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	}
 	defer closeFileData(data)
 
+	return ParseGitIndexFromMemory(ctx, data)
+}
+
+// Returns the relative paths mapping to the GitIndexEntry
+// Parses a Git Index file (version 2)
+func ParseGitIndexFromMemory(ctx context.Context, data []byte) (map[string]GitIndexEntry, error) {
 	reader := bytes.NewReader(data)
 
 	headerBytes := make([]byte, 12)
-	_, err = io.ReadFull(reader, headerBytes)
+	_, err := io.ReadFull(reader, headerBytes)
 	if err != nil {
 		return nil, err
 	}
