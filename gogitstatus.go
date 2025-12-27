@@ -104,12 +104,13 @@ func ParseGitIndex(ctx context.Context, path string) (map[string]GitIndexEntry, 
 	}
 	defer closeFileData(data)
 
-	return ParseGitIndexFromMemory(ctx, data)
+	return ParseGitIndexFromMemory(ctx, data, -1)
 }
 
 // Returns the relative paths mapping to the GitIndexEntry
 // Parses a Git Index file (version 2)
-func ParseGitIndexFromMemory(ctx context.Context, data []byte) (map[string]GitIndexEntry, error) {
+// Passing a negative value e.g. -1 to maxEntriesToPreAllocate means there will be no limit. Otherwise, we will only pre-allocate up to that many entries.
+func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAllocate int) (map[string]GitIndexEntry, error) {
 	reader := bytes.NewReader(data)
 
 	headerBytes := make([]byte, 12)
@@ -128,7 +129,12 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte) (map[string]GitIn
 	}
 
 	numEntries := binary.BigEndian.Uint32(headerBytes[8:12])
-	entries := make(map[string]GitIndexEntry, numEntries)
+	var entries map[string]GitIndexEntry
+	if maxEntriesToPreAllocate < 0 {
+		entries = make(map[string]GitIndexEntry, numEntries)
+	} else {
+		entries = make(map[string]GitIndexEntry, min(uint32(maxEntriesToPreAllocate), numEntries))
+	}
 
 	flagsBytes := make([]byte, 2)          // 16 bits 'flags' field
 	modeBytes := make([]byte, 4)           // 32 bits
