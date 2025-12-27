@@ -645,7 +645,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	wg.Wait()
 
 	if pathsErr != nil {
-		panic("temporary")
+		return nil, pathsErr
 	}
 
 	for p := range indexEntries {

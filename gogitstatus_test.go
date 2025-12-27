@@ -247,6 +247,11 @@ func TestStatus(t *testing.T) {
 		}
 		changedFiles, err := Status(filesExtractPath)
 
+		// Let's also check for a crash when cancelling a StatusWithContext() call while we're at it.
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		go StatusWithContext(ctx, filesExtractPath)
+		cancelFunc()
+
 		if expectedAnyError && err == nil {
 			fmt.Println("expected any error, but got nil")
 			testFailed = true
