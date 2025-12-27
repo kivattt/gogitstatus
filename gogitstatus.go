@@ -436,7 +436,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 	}
 }
 
-// Returns untracked files that aren't ignored. 
+// Returns untracked files that aren't ignored.
 // It recursively iterates through the directory path, ignoring files/directories named ".git" and files ignored by .gitignore
 func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	ignoresMap := make(map[string]*ignore.GitIgnore)

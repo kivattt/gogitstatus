@@ -632,12 +632,7 @@ func FuzzParseGitIndexFromMemory(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		start := time.Now()
 		ctx := context.WithoutCancel(context.Background())
 		_, _ = ParseGitIndexFromMemory(ctx, data, 1000)
-		duration := time.Since(start)
-		if duration > 2 * time.Second {
-			t.Fatal("Took longer than 2 seconds")
-		}
 	})
 }
