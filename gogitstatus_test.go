@@ -140,14 +140,14 @@ func getNumberFromFolderName(folderName string) (int, error) {
 	return strconv.Atoi(numberString)
 }
 
-func TestStatusRaw(t *testing.T) {
-	testsPath := "./tests-statusraw"
+func TestStatus(t *testing.T) {
+	testsPath := "./tests-status"
 	tests, err := os.ReadDir(testsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	printGray("TestStatusRaw:\n")
+	printGray("TestStatus:\n")
 
 	printChangedFiles := func(entries map[string]ChangedFile) {
 		untracked2Str := func(b bool) string {
