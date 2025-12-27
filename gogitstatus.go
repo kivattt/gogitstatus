@@ -354,7 +354,8 @@ const REGULAR_FILE = 0b1000 << 12
 const SYMBOLIC_LINK = 0b1010 << 12
 const GITLINK = 0b1110 << 12
 
-// If you pass this a nil value for stat, it will return 0
+// Returns 0 if the file is unchanged.
+// If you pass this a nil value for stat, it will return 0.
 // https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L307
 func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) WhatChanged {
 	if stat == nil {
