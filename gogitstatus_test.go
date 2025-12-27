@@ -594,3 +594,45 @@ func TestExcludingDirectories(t *testing.T) {
 		t.Fatal("TestExcludingDirectories did not recursively add directories to the map")
 	}
 }
+
+func TestParseGitIndexFromMemoryUntrustedAllocationCount(t *testing.T) {
+	// Only the 12-byte header, with a large amount of entries (1827392984) specified in the last 4 bytes.
+	// Previously, space for these entries would be allocated no questions asked,
+	//  resulting in a runtime out of memory panic.
+	data := []byte("DIRC\x00\x00\x00\x02l\xeb\xcd\xd8")
+
+	ctx := context.WithoutCancel(context.Background())
+	// However, we now have an optional max amount of entries to pre-allocate. (1000 in this case)
+	_, err := ParseGitIndexFromMemory(ctx, data, 1000)
+
+	if err == nil {
+		t.Fatal("Expected an error, but got nil")
+	}
+}
+
+// Fuzz for crashes in ParseGitIndexFromMemory()
+func FuzzParseGitIndexFromMemory(f *testing.F) {
+	files, err := os.ReadDir("fuzz_indexes")
+	if err != nil {
+		f.Fatal("Failed to open fuzz_indexes:", err)
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile("fuzz_indexes" + string(os.PathSeparator) + file.Name())
+		if err != nil {
+			f.Fatal("Failed to read file:", err)
+		}
+
+		f.Add(data)
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		start := time.Now()
+		ctx := context.WithoutCancel(context.Background())
+		_, _ = ParseGitIndexFromMemory(ctx, data, 1000)
+		duration := time.Since(start)
+		if duration > 2 * time.Second {
+			t.Fatal("Took longer than 2 seconds")
+		}
+	})
+}

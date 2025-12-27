@@ -21,7 +21,10 @@ go build
 ./showindex index
 ```
 
-Run `go test` to run all the tests
+## Running tests
+Run `go test` to run all the tests.
+
+Run `go test -fuzz=FuzzParseGitIndexFromMemory` to fuzz for crashes in the `ParseGitIndexFromMemory()` function.
 
 ## Git Index file format resources
 https://git-scm.com/docs/index-format (missing some visual separation...)\
