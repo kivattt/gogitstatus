@@ -436,8 +436,9 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 	}
 }
 
-// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git" and untracked files ignored by .gitignore
-func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
+// Returns untracked files that aren't ignored. 
+// It recursively iterates through the directory path, ignoring files/directories named ".git" and files ignored by .gitignore
+func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	ignoresMap := make(map[string]*ignore.GitIgnore)
 
 	paths := make(map[string]ChangedFile)
@@ -458,9 +459,12 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 
 			// If it's in the .git/index, it's tracked
 			_, tracked := indexEntries[filepath.ToSlash(rel)]
+			if tracked {
+				return nil
+			}
 
 			// Don't add untracked ignored files
-			if respectGitIgnore && !tracked {
+			if respectGitIgnore {
 				if d.IsDir() {
 					childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
 					if err == nil {
@@ -494,7 +498,7 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 				return nil
 			}
 
-			paths[rel] = ChangedFile{Untracked: !tracked}
+			paths[rel] = ChangedFile{Untracked: true}
 			return nil
 		}
 	})
@@ -597,7 +601,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return AccumulatePathsNotIgnored(ctx, path, make(map[string]GitIndexEntry), respectGitIgnore)
+		return UntrackedPathsNotIgnored(ctx, path, make(map[string]GitIndexEntry), respectGitIgnore)
 	}
 
 	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
@@ -605,40 +609,34 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		return nil, errors.New("unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	var paths map[string]ChangedFile
+	var untrackedPaths map[string]ChangedFile
 	var pathsErr error
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		paths, pathsErr = AccumulatePathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
+		untrackedPaths, pathsErr = UntrackedPathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
 		wg.Done()
 	}()
 
-	outPaths := make(map[string]ChangedFile)
+	out := make(map[string]ChangedFile)
 
-	// Filter unchanged files
-	for p, entry := range indexEntries {
+	// Add all the tracked files that were changed or deleted.
+	for entryPath, entry := range indexEntries {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			pFromSlash := filepath.FromSlash(p)
-			fullPath := filepath.Join(path, pFromSlash)
+			entryPathFromSlash := filepath.FromSlash(entryPath)
+			fullPath := filepath.Join(path, entryPathFromSlash)
 
 			stat, statErr := os.Lstat(fullPath)
 			if statErr != nil {
-				stat = nil // Just to be sure
-
-				// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
-
-				// Deleted files need to be added since we previously only added files that already exist on the filesystem
-				outPaths[pFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
-				continue
-			}
-
-			whatChanged := fileChanged(entry, fullPath, stat)
-			if whatChanged != 0 {
-				outPaths[pFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+				out[entryPathFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
+			} else {
+				whatChanged := fileChanged(entry, fullPath, stat)
+				if whatChanged != 0 {
+					out[entryPathFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+				}
 			}
 		}
 	}
@@ -649,23 +647,10 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		return nil, pathsErr
 	}
 
-	for p := range indexEntries {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-			pFromSlash := filepath.FromSlash(p)
-			_, pathFound := paths[pFromSlash]
-			if pathFound { // Deleted file
-				delete(paths, pFromSlash)
-			}
-		}
+	// Add untracked files
+	for k, v := range untrackedPaths {
+		out[k] = v
 	}
 
-	// TODO: merge paths and outPaths
-	for k, v := range paths {
-		outPaths[k] = v
-	}
-
-	return outPaths, nil
+	return out, nil
 }
