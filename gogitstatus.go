@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	//	"github.com/sabhiram/go-gitignore"
@@ -353,7 +354,8 @@ const REGULAR_FILE = 0b1000 << 12
 const SYMBOLIC_LINK = 0b1010 << 12
 const GITLINK = 0b1110 << 12
 
-// If you pass this a nil value for stat, it will return 0
+// Returns 0 if the file is unchanged.
+// If you pass this a nil value for stat, it will return 0.
 // https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/read-cache.c#L307
 func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) WhatChanged {
 	if stat == nil {
@@ -434,8 +436,9 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 	}
 }
 
-// Recursively iterates through the directory path, returning a list of all the filepaths found, ignoring files/directories named ".git" and untracked files ignored by .gitignore
-func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
+// Returns untracked files that aren't ignored. 
+// It recursively iterates through the directory path, ignoring files/directories named ".git" and files ignored by .gitignore
+func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	ignoresMap := make(map[string]*ignore.GitIgnore)
 
 	paths := make(map[string]ChangedFile)
@@ -456,9 +459,12 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 
 			// If it's in the .git/index, it's tracked
 			_, tracked := indexEntries[filepath.ToSlash(rel)]
+			if tracked {
+				return nil
+			}
 
 			// Don't add untracked ignored files
-			if respectGitIgnore && !tracked {
+			if respectGitIgnore {
 				if d.IsDir() {
 					childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
 					if err == nil {
@@ -492,7 +498,7 @@ func AccumulatePathsNotIgnored(ctx context.Context, path string, indexEntries ma
 				return nil
 			}
 
-			paths[rel] = ChangedFile{Untracked: !tracked}
+			paths[rel] = ChangedFile{Untracked: true}
 			return nil
 		}
 	})
@@ -595,7 +601,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return AccumulatePathsNotIgnored(ctx, path, make(map[string]GitIndexEntry), respectGitIgnore)
+		return UntrackedPathsNotIgnored(ctx, path, make(map[string]GitIndexEntry), respectGitIgnore)
 	}
 
 	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
@@ -603,46 +609,48 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		return nil, errors.New("unable to read " + gitIndexPath + ": " + err.Error())
 	}
 
-	paths, err := AccumulatePathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
-	if err != nil {
-		return nil, err
-	}
+	var untrackedPaths map[string]ChangedFile
+	var pathsErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		untrackedPaths, pathsErr = UntrackedPathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
+		wg.Done()
+	}()
 
-	// Filter unchanged files
-	for p, entry := range indexEntries {
+	out := make(map[string]ChangedFile)
+
+	// Add all the tracked files that were changed or deleted.
+	for entryPath, entry := range indexEntries {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
-			pFromSlash := filepath.FromSlash(p)
-			fullPath := filepath.Join(path, pFromSlash)
-
-			_, pathFound := paths[pFromSlash]
+			entryPathFromSlash := filepath.FromSlash(entryPath)
+			fullPath := filepath.Join(path, entryPathFromSlash)
 
 			stat, statErr := os.Lstat(fullPath)
 			if statErr != nil {
-				stat = nil // Just to be sure
-
-				if pathFound { // Deleted file
-					delete(paths, pFromSlash)
-					continue
-				} else {
-					// File is tracked but ignored, so we didn't add it previously. This might cause bugs?
-
-					// Deleted files need to be added since we previously only added files that already exist on the filesystem
-					paths[pFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
-					continue
-				}
-			}
-
-			whatChanged := fileChanged(entry, fullPath, stat)
-			if whatChanged == 0 {
-				delete(paths, pFromSlash)
+				out[entryPathFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
 			} else {
-				paths[pFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+				whatChanged := fileChanged(entry, fullPath, stat)
+				if whatChanged != 0 {
+					out[entryPathFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+				}
 			}
 		}
 	}
 
-	return paths, nil
+	wg.Wait()
+
+	if pathsErr != nil {
+		return nil, pathsErr
+	}
+
+	// Add untracked files
+	for k, v := range untrackedPaths {
+		out[k] = v
+	}
+
+	return out, nil
 }
