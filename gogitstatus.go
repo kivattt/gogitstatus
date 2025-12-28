@@ -463,7 +463,7 @@ func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map
 				return nil
 			}
 
-			// Don't add untracked ignored files
+			// Don't add ignored files
 			if respectGitIgnore {
 				if d.IsDir() {
 					childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
