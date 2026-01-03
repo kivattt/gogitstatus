@@ -420,8 +420,11 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 			return false
 		}
 
-		if ok && ignore.MatchesPath(rel) {
-			return true
+		if ok {
+			isIgnored, _ := ignore.MatchesPath(rel)
+			if isIgnored {
+				return true
+			}
 		}
 
 		// Debugging
