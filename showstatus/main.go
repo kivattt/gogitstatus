@@ -3,13 +3,20 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/kivattt/gogitstatus"
+	"golang.org/x/term"
 	//	"github.com/pkg/profile"
 )
 
 func main() {
 	//defer profile.Start(profile.CPUProfile).Stop()
+
+	useColor := true
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		useColor = false // Output is piped, don't colorize the output
+	}
 
 	args := os.Args
 
@@ -46,36 +53,64 @@ func main() {
 	if len(unstaged) > 0 {
 		fmt.Println("Changes not staged for commit:")
 	}
-	for k, e := range unstaged {
+
+	unstagedKeysSorted := make([]string, len(unstaged))
+	i := 0
+	for key := range unstaged {
+		unstagedKeysSorted[i] = key
+		i++
+	}
+	sort.Strings(unstagedKeysSorted)
+	for _, key := range unstagedKeysSorted {
+		elem := unstaged[key]
 		whatChangedStr := ""
-		if e.WhatChanged&gogitstatus.DELETED != 0 {
-			whatChangedStr = "deleted:  "
-		} else if e.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
-			whatChangedStr = "modified: "
+		if elem.WhatChanged&gogitstatus.DELETED != 0 {
+			whatChangedStr = "deleted:   "
+		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 || elem.WhatChanged&gogitstatus.MODE_CHANGED != 0 {
+			whatChangedStr = "modified:  "
 		}
 
-		//whatChangedStr := gogitstatus.WhatChangedToString(e.WhatChanged)
+		//whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println("        \x1b[0;31m" + whatChangedStr + k + "\x1b[0m")
+
+		if useColor {
+			fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
+		} else {
+			fmt.Println("        " + whatChangedStr + key)
+		}
 	}
 
 	if len(untracked) > 0 {
 		fmt.Println("Untracked files:")
 	}
-	for k, e := range untracked {
+
+	untrackedKeysSorted := make([]string, len(untracked))
+	i = 0
+	for key := range untracked {
+		untrackedKeysSorted[i] = key
+		i++
+	}
+	sort.Strings(untrackedKeysSorted)
+	for _, key := range untrackedKeysSorted {
+		elem := untracked[key]
 		whatChangedStr := ""
-		if e.WhatChanged&gogitstatus.DELETED != 0 {
-			whatChangedStr = "deleted:  "
-		} else if e.WhatChanged&gogitstatus.DATA_CHANGED != 0 {
-			whatChangedStr = "modified: "
+		if elem.WhatChanged&gogitstatus.DELETED != 0 {
+			whatChangedStr = "deleted:   "
+		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 || elem.WhatChanged&gogitstatus.MODE_CHANGED != 0 {
+			whatChangedStr = "modified:  "
 		}
 
-		//whatChangedStr := gogitstatus.WhatChangedToString(e.WhatChanged)
+		//whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
-		fmt.Println("        \x1b[0;31m" + whatChangedStr + k + "\x1b[0m")
+
+		if useColor {
+			fmt.Println("        \x1b[0;31m" + whatChangedStr + key + "\x1b[0m")
+		} else {
+			fmt.Println("        " + whatChangedStr + key)
+		}
 	}
 }

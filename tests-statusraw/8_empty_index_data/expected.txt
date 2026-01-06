@@ -1,4 +1,0 @@
-Untracked directory/file
-Untracked directory/symlink
-Untracked file
-Untracked symlink

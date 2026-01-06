@@ -1,2 +1,0 @@
-Untracked directory_unstaged/file.txt
-Untracked helloworld_unstaged.txt

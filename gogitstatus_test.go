@@ -12,9 +12,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func printRed(text string) {
@@ -42,6 +44,7 @@ func printGray(text string) {
 }
 
 // Copied from: https://stackoverflow.com/a/24792688
+// Modified to support symlinks (except on Windows)
 func extractZipArchive(zipFilePath, destination string) error {
 	r, err := zip.OpenReader(zipFilePath)
 	if err != nil {
@@ -76,6 +79,25 @@ func extractZipArchive(zipFilePath, destination string) error {
 
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(path, f.Mode())
+		} else if f.Mode()&os.ModeSymlink != 0 && runtime.GOOS != "windows" { // Don't do on Windows?
+			rc, err := f.Open()
+			if err != nil {
+				return err
+			}
+
+			targetPath, err := io.ReadAll(rc)
+			if err != nil {
+				return err
+			}
+
+			if err := rc.Close(); err != nil {
+				return err
+			}
+
+			err = os.Symlink(string(targetPath), path)
+			if err != nil {
+				return err
+			}
 		} else {
 			os.MkdirAll(filepath.Dir(path), f.Mode())
 			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
@@ -107,14 +129,25 @@ func extractZipArchive(zipFilePath, destination string) error {
 	return nil
 }
 
-func TestStatusRaw(t *testing.T) {
-	testsPath := "./tests-statusraw"
+func getNumberFromFolderName(folderName string) (int, error) {
+	numberString := ""
+	for _, c := range folderName {
+		if c == '_' {
+			break
+		}
+		numberString += string(c)
+	}
+	return strconv.Atoi(numberString)
+}
+
+func TestStatus(t *testing.T) {
+	testsPath := "./tests-status"
 	tests, err := os.ReadDir(testsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	printGray("TestStatusRaw:\n")
+	printGray("TestStatus:\n")
 
 	printChangedFiles := func(entries map[string]ChangedFile) {
 		untracked2Str := func(b bool) string {
@@ -130,9 +163,22 @@ func TestStatusRaw(t *testing.T) {
 
 	testFailed := false
 
+	// Sort our tests by the numbers in the folder names
+	slices.SortFunc(tests, func(a, b os.DirEntry) int {
+		num1, err := getNumberFromFolderName(a.Name())
+		if err != nil {
+			t.Fatal("Missing number prefix like \"25_\" in folder named:", a.Name())
+		}
+		num2, err := getNumberFromFolderName(b.Name())
+		if err != nil {
+			t.Fatal("Missing number prefix like \"25_\" in folder named:", b.Name())
+		}
+
+		return num1 - num2
+	})
 	for _, test := range tests {
-		filesPath := filepath.Join(testsPath, test.Name(), "files")
-		indexPath := filepath.Join(testsPath, test.Name(), "index")
+		filesExtractPath := filepath.Join(testsPath, test.Name(), "files")
+		defer os.RemoveAll(filesExtractPath)
 		expectedPath := filepath.Join(testsPath, test.Name(), "expected.txt")
 		if runtime.GOOS == "windows" {
 			expectedWindowsPath := filepath.Join(testsPath, test.Name(), "expected_windows.txt")
@@ -192,18 +238,20 @@ func TestStatusRaw(t *testing.T) {
 			expectedChangedFiles[pathText] = ChangedFile{WhatChanged: StringToWhatChanged(whatChangedText), Untracked: untracked}
 		}
 
-		_, err = os.Stat(filesPath)
+		_, err = os.Stat(filesExtractPath)
 		if err != nil {
 			zipFilePath := filepath.Join(testsPath, test.Name(), "files.zip")
-			err := extractZipArchive(zipFilePath, filesPath)
-			if err == nil {
-				defer func() {
-					os.RemoveAll(filesPath)
-				}()
+			err := extractZipArchive(zipFilePath, filesExtractPath)
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
-		ctx := context.WithoutCancel(context.Background())
-		changedFiles, err := StatusRaw(ctx, filesPath, indexPath, true)
+		changedFiles, err := Status(filesExtractPath)
+
+		// Let's also check for a crash when cancelling a StatusWithContext() call while we're at it.
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		go StatusWithContext(ctx, filesExtractPath)
+		cancelFunc()
 
 		if expectedAnyError && err == nil {
 			fmt.Println("expected any error, but got nil")
@@ -258,7 +306,7 @@ func TestParseGitIndex(t *testing.T) {
 
 	printEntries := func(entries map[string]GitIndexEntry) {
 		for path, e := range entries {
-			fmt.Println("    "+strconv.FormatUint(uint64(e.Mode), 8), hex.EncodeToString(e.Hash), path)
+			fmt.Println("    "+strconv.FormatUint(uint64(e.Mode), 8), hex.EncodeToString(e.Hash[:]), path)
 		}
 	}
 
@@ -291,6 +339,19 @@ func TestParseGitIndex(t *testing.T) {
 			continue
 		}
 
+		// Sort our tests by the numbers in the folder names
+		slices.SortFunc(versionTests, func(a, b os.DirEntry) int {
+			num1, err := getNumberFromFolderName(a.Name())
+			if err != nil {
+				t.Fatal("Missing number prefix like \"25_\" in folder named:", a.Name())
+			}
+			num2, err := getNumberFromFolderName(b.Name())
+			if err != nil {
+				t.Fatal("Missing number prefix like \"25_\" in folder named:", b.Name())
+			}
+
+			return num1 - num2
+		})
 		for _, versionTest := range versionTests {
 			indexPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "index")
 			expectedPath := filepath.Join(testsPath, version.Name(), versionTest.Name(), "expected.txt")
@@ -327,7 +388,7 @@ func TestParseGitIndex(t *testing.T) {
 					continue
 				}
 
-				expectedEntries[pathName] = GitIndexEntry{Hash: sha1HashBytes}
+				expectedEntries[pathName] = GitIndexEntry{Hash: [20]byte(sha1HashBytes)}
 			}
 			file.Close()
 
@@ -367,6 +428,31 @@ func TestParseGitIndex(t *testing.T) {
 	if testFailed {
 		t.Fatal("See above ^")
 	}
+}
+
+func TestBenchmarkParseGitIndex(t *testing.T) {
+	howManyTimes := 10
+	fmt.Print("[Benchmark] Calling ParseGitIndex() on Linux .git/index ", howManyTimes, " times:")
+
+	indexPath := "benchmark_indexes/torvalds_linux"
+	expectedEntriesLength := 92192
+
+	start := time.Now()
+
+	for i := 0; i < howManyTimes; i++ {
+		ctx := context.WithoutCancel(context.Background())
+		entries, err := ParseGitIndex(ctx, indexPath)
+		if err != nil {
+			t.Fatal("Got an error while benchmarking ParseGitIndex(): ", err)
+		}
+
+		if len(entries) != expectedEntriesLength {
+			t.Fatal("Expected ", expectedEntriesLength, " entries, but got: ", len(entries))
+		}
+	}
+
+	duration := time.Since(start)
+	fmt.Println(" " + duration.String())
 }
 
 func TestIncludingDirectories(t *testing.T) {
@@ -514,4 +600,41 @@ func TestExcludingDirectories(t *testing.T) {
 	if !reflect.DeepEqual(got, expected) {
 		t.Fatal("TestExcludingDirectories did not recursively add directories to the map")
 	}
+}
+
+func TestParseGitIndexFromMemoryUntrustedAllocationCount(t *testing.T) {
+	// Only the 12-byte header, with a large amount of entries (1827392984) specified in the last 4 bytes.
+	// Previously, space for these entries would be allocated no questions asked,
+	//  resulting in a runtime out of memory panic.
+	data := []byte("DIRC\x00\x00\x00\x02l\xeb\xcd\xd8")
+
+	ctx := context.WithoutCancel(context.Background())
+	// However, we now have an optional max amount of entries to pre-allocate. (1000 in this case)
+	_, err := ParseGitIndexFromMemory(ctx, data, 1000)
+
+	if err == nil {
+		t.Fatal("Expected an error, but got nil")
+	}
+}
+
+// Fuzz for crashes in ParseGitIndexFromMemory()
+func FuzzParseGitIndexFromMemory(f *testing.F) {
+	files, err := os.ReadDir("fuzz_indexes")
+	if err != nil {
+		f.Fatal("Failed to open fuzz_indexes:", err)
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile("fuzz_indexes" + string(os.PathSeparator) + file.Name())
+		if err != nil {
+			f.Fatal("Failed to read file:", err)
+		}
+
+		f.Add(data)
+	}
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		ctx := context.WithoutCancel(context.Background())
+		_, _ = ParseGitIndexFromMemory(ctx, data, 1000)
+	})
 }
