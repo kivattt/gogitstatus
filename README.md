@@ -5,7 +5,7 @@
 
 gogitstatus is a library for finding unstaged/untracked files in local Git repositories\
 Tested for Linux, FreeBSD and Windows\
-This library is used in my terminal file manager, [fen](https://github.com/kivattt/fen)
+This library is used in my terminal file manager [fen](https://github.com/kivattt/fen)
 
 To try out `gogitstatus.Status()`, run the showstatus program:
 ```console
@@ -31,6 +31,7 @@ https://git-scm.com/docs/index-format (missing some visual separation...)\
 https://github.com/git/git/blob/master/read-cache.c
 
 ## TODO
+- Deal with .git files that point the real .git folder elsewhere (submodules or something)
 - Support exclude file priority
 - Support SHA-256
 - Support other Git Index versions besides 2
