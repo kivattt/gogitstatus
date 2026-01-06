@@ -9,7 +9,7 @@ Our only requirement for something to be a git repository is for there to be a .
 This is inconsistent with `git status`, which presumably checks for some other files to consider it a repository.
 
 Because of this, we need tests to atleast have an empty .git folder in them (unless they're specifically checking if a .git folder is missing AKA not-a-repository).
-An empty .git folder is like a brand new `git init` repository, because it is missing the `.git/index` file, meaning everything is untracked.
+An empty .git folder is like a brand new `git init` repository, because it is missing the `.git/index` file, meaning all files are untracked.
 
 Most tests should have a `.git/index` file.
 
