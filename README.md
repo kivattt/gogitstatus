@@ -11,7 +11,7 @@ To try out `gogitstatus.Status()`, run the showstatus program:
 ```console
 cd showstatus
 go build
-./showstatus # In any git repository
+./showstatus . # In any git repository
 ```
 
 To try out `gogitstatus.ParseIndex()`, run the showindex program:
