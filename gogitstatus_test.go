@@ -339,6 +339,7 @@ func TestParseGitIndex(t *testing.T) {
 			continue
 		}
 
+		// Sort our tests by the numbers in the folder names
 		slices.SortFunc(versionTests, func(a, b os.DirEntry) int {
 			num1, err := getNumberFromFolderName(a.Name())
 			if err != nil {
