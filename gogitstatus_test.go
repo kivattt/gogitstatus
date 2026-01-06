@@ -163,6 +163,7 @@ func TestStatus(t *testing.T) {
 
 	testFailed := false
 
+	// Sort our tests by the numbers in the folder names
 	slices.SortFunc(tests, func(a, b os.DirEntry) int {
 		num1, err := getNumberFromFolderName(a.Name())
 		if err != nil {
