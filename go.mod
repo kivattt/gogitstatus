@@ -3,7 +3,7 @@ module github.com/kivattt/gogitstatus
 go 1.21.5
 
 require (
-	github.com/botondmester/goignore v0.0.0-20260102191936-df2f344aab52
+	github.com/botondmester/goignore v0.0.0-20260103132253-6125e06795f3
 	golang.org/x/term v0.24.0
 )
 
