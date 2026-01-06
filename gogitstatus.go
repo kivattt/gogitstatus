@@ -137,10 +137,10 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 		entries = make(map[string]GitIndexEntry, min(uint32(maxEntriesToPreAllocate), numEntries))
 	}
 
-	flagsBytes := make([]byte, 2)          // 16 bits 'flags' field
-	modeBytes := make([]byte, 4)           // 32 bits
-	eightBytes := make([]byte, 8)          // 64 bits
-	hashBytes := make([]byte, 20)          // 160 bits
+	flagsBytes := make([]byte, 2)         // 16 bits 'flags' field
+	modeBytes := make([]byte, 4)          // 32 bits
+	eightBytes := make([]byte, 8)         // 64 bits
+	hashBytes := make([]byte, 20)         // 160 bits
 	pathNameBuffer := make([]byte, 0xffe) // We allocate enough for the largest possible known-size (not null-terminated) Git path name length.
 
 	var entryIndex uint32
