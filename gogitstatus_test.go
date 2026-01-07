@@ -181,8 +181,14 @@ func TestStatus(t *testing.T) {
 		defer os.RemoveAll(filesExtractPath)
 		expectedPath := filepath.Join(testsPath, test.Name(), "expected.txt")
 		if runtime.GOOS == "windows" {
+			dontRunOnWindowsPath := filepath.Join(testsPath, test.Name(), "DO_NOT_RUN_ON_WINDOWS.txt")
+			_, err := os.Stat(dontRunOnWindowsPath)
+			if err == nil {
+				t.Skip("Not applicable to run on Windows")
+			}
+
 			expectedWindowsPath := filepath.Join(testsPath, test.Name(), "expected_windows.txt")
-			_, err := os.Stat(expectedWindowsPath)
+			_, err = os.Stat(expectedWindowsPath)
 			if err == nil {
 				expectedPath = expectedWindowsPath
 			}
