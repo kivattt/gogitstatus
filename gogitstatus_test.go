@@ -184,7 +184,8 @@ func TestStatus(t *testing.T) {
 			dontRunOnWindowsPath := filepath.Join(testsPath, test.Name(), "DO_NOT_RUN_ON_WINDOWS.txt")
 			_, err := os.Stat(dontRunOnWindowsPath)
 			if err == nil {
-				t.Skip("Not applicable to run on Windows")
+				fmt.Print("Test " + expectedPath + ": Not applicable to run on Windows")
+				continue
 			}
 
 			expectedWindowsPath := filepath.Join(testsPath, test.Name(), "expected_windows.txt")
