@@ -415,9 +415,13 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 	dir := filepath.Dir(path)
 	for {
 		ignore, ok := ignoresMap[dir]
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return false
+
+		// Faster than filepath.Rel()
+		var rel string
+		if dir == "." {
+			rel = path
+		} else {
+			rel = path[len(dir)+1:]
 		}
 
 		if ok {
@@ -630,7 +634,8 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 			return nil, ctx.Err()
 		default:
 			entryPathFromSlash := filepath.FromSlash(entryPath)
-			fullPath := filepath.Join(path, entryPathFromSlash)
+			// Faster than filepath.Join()
+			fullPath := path + string(os.PathSeparator) + entryPathFromSlash
 
 			stat, statErr := os.Lstat(fullPath)
 			if statErr != nil {
