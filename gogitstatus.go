@@ -412,7 +412,7 @@ type ChangedFile struct {
 }
 
 func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
-	dir := filepath.Dir(path)
+	dir := filepath.Dir(path) // FIXME: Replace filepath.Dir() here because it calls the slow filepath.Clean()
 	for {
 		ignore, ok := ignoresMap[dir]
 
@@ -598,6 +598,125 @@ func StatusWithContext(ctx context.Context, path string) (map[string]ChangedFile
 	return StatusRaw(ctx, path, filepath.Join(dotGitPath, "index"), true)
 }
 
+type Slice struct {
+	start  int
+	length int
+}
+
+// This function and Slice struct were copied from util.go in my fen file manager
+// See: https://github.com/kivattt/fen/blob/main/util.go#L1286
+func SpreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []Slice {
+	if arrayLength == 0 {
+		return []Slice{}
+	}
+
+	if numGoroutines <= 1 {
+		return []Slice{
+			{0, arrayLength},
+		}
+	}
+
+	// More goroutines than there are elements, use arrayLength goroutines instead.
+	// That is, 1 goroutine per element...
+	if numGoroutines >= arrayLength {
+		var result []Slice
+		for i := 0; i < arrayLength; i++ {
+			result = append(result, Slice{i, 1})
+		}
+		return result
+	}
+
+	var result []Slice
+	lengthPerGoroutine := arrayLength / numGoroutines
+
+	rollingIndex := 0
+	for i := 0; i < numGoroutines-1; i++ {
+		result = append(result, Slice{
+			start:  rollingIndex,
+			length: lengthPerGoroutine,
+		})
+
+		rollingIndex += lengthPerGoroutine
+	}
+
+	// Last goroutine will handle the last part of the array
+	result = append(result, Slice{
+		start:  rollingIndex,
+		length: arrayLength - rollingIndex,
+	})
+
+	return result
+}
+
+func TrackedPathsChanged(ctx context.Context, path string, indexEntries map[string]GitIndexEntry) (map[string]ChangedFile, error) {
+	numCPUs := runtime.NumCPU()
+	outs := make([]map[string]ChangedFile, numCPUs)
+	for i := range outs {
+		outs[i] = make(map[string]ChangedFile)
+	}
+
+	// Turn indexEntries into a list so we can iterate over it spread across threads easily
+	type IndexEntry struct {
+		path  string
+		entry GitIndexEntry
+	}
+
+	indexEntriesSlice := make([]IndexEntry, 0)
+	for k, v := range indexEntries {
+		indexEntriesSlice = append(indexEntriesSlice, IndexEntry{
+			path:  k,
+			entry: v,
+		})
+	}
+
+	splits := SpreadArrayIntoSlicesForGoroutines(len(indexEntriesSlice), numCPUs)
+
+	var wg sync.WaitGroup
+	wg.Add(len(splits))
+
+	for threadIdx, split := range splits {
+		go func(threadIdx int, split Slice) {
+			defer wg.Done()
+
+			for i := split.start; i < split.start+split.length; i++ {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					e := indexEntriesSlice[i]
+					entryPath := e.path
+					entry := e.entry
+
+					entryPathFromSlash := filepath.FromSlash(entryPath)
+					// Faster than filepath.Join()
+					fullPath := path + string(os.PathSeparator) + entryPathFromSlash
+
+					stat, statErr := os.Lstat(fullPath)
+					if statErr != nil {
+						outs[threadIdx][entryPathFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
+					} else {
+						whatChanged := fileChanged(entry, fullPath, stat)
+						if whatChanged != 0 {
+							outs[threadIdx][entryPathFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
+						}
+					}
+				}
+			}
+		}(threadIdx, split)
+	}
+
+	wg.Wait()
+
+	// Merge the results into the first element
+	for i := 1; i < len(outs); i += 1 {
+		for k, v := range outs[i] {
+			outs[0][k] = v
+		}
+	}
+
+	return outs[0], nil
+}
+
 // Cancellable with context, does not check if path is a valid git repository
 func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	stat, err := os.Stat(path)
@@ -625,28 +744,9 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		wg.Done()
 	}()
 
-	out := make(map[string]ChangedFile)
-
-	// Add all the tracked files that were changed or deleted.
-	for entryPath, entry := range indexEntries {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-			entryPathFromSlash := filepath.FromSlash(entryPath)
-			// Faster than filepath.Join()
-			fullPath := path + string(os.PathSeparator) + entryPathFromSlash
-
-			stat, statErr := os.Lstat(fullPath)
-			if statErr != nil {
-				out[entryPathFromSlash] = ChangedFile{WhatChanged: DELETED, Untracked: false}
-			} else {
-				whatChanged := fileChanged(entry, fullPath, stat)
-				if whatChanged != 0 {
-					out[entryPathFromSlash] = ChangedFile{WhatChanged: whatChanged, Untracked: false}
-				}
-			}
-		}
+	out, err := TrackedPathsChanged(ctx, path, indexEntries)
+	if err != nil {
+		return nil, err
 	}
 
 	wg.Wait()
