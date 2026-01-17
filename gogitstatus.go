@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -20,6 +21,8 @@ import (
 	//	"github.com/sabhiram/go-gitignore"
 	ignore "github.com/botondmester/goignore"
 )
+
+var gogitstatus_debug = false
 
 // A small subset of a Git index entry
 type GitIndexEntry struct {
@@ -443,13 +446,17 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 	}
 }
 
-// Returns untracked files that aren't ignored.
-// It recursively iterates through the directory path, ignoring files/directories named ".git" and files ignored by .gitignore
-func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
-	ignoresMap := make(map[string]*ignore.GitIgnore)
+// Walks the directory at path, returning a list of all the relative file paths.
+// Ignores files and folders named ".git".
+//
+// Returns:
+// paths is a list of paths relative to path.
+// gitIgnorePaths is a list of absolute paths of all the .gitignore files found.
+func getPathsRecursivelyRelativeTo(ctx context.Context, path string) (paths, gitIgnorePaths []string, err error) {
+	paths = make([]string, 0)
+	gitIgnorePaths = make([]string, 0)
 
-	paths := make(map[string]ChangedFile)
-	err := filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
+	err = myWalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -458,41 +465,6 @@ func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map
 				return nil
 			}
 
-			// We need to handle everything based on the path relative to path
-			rel, err := filepath.Rel(path, filePath)
-			if err != nil {
-				return nil
-			}
-
-			// If it's in the .git/index, it's tracked
-			_, tracked := indexEntries[filepath.ToSlash(rel)]
-			if tracked {
-				return nil
-			}
-
-			// Don't add ignored files
-			if respectGitIgnore {
-				if d.IsDir() {
-					childIgnore, err := ignore.CompileIgnoreFile(filepath.Join(filePath, ".gitignore"))
-					if err == nil {
-						ignoresMap[rel] = childIgnore
-					}
-				}
-
-				if rel == "." {
-					return nil
-				}
-
-				if ignoreMatch(rel, ignoresMap) {
-					if d.IsDir() {
-						return filepath.SkipDir
-					} else {
-						return nil
-					}
-				}
-			}
-
-			// git status seems to ignore any file/directory named ".git", regardless of its parent directory
 			if d.Name() == ".git" {
 				if d.IsDir() {
 					return filepath.SkipDir
@@ -501,20 +473,160 @@ func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map
 				}
 			}
 
-			if d.IsDir() {
+			// What if .gitignore is suddenly a symlink or something?
+			if !d.IsDir() && d.Name() == ".gitignore" {
+				gitIgnorePaths = append(gitIgnorePaths, filePath)
+			}
+
+			// Skips when filePath == path, required to prevent out-of-bounds below.
+			if len(filePath) <= len(path) {
 				return nil
 			}
 
-			paths[rel] = ChangedFile{Untracked: true}
+			if d.IsDir() {
+				paths = append(paths, filePath[len(path)+1:]+"/")
+			} else {
+				paths = append(paths, filePath[len(path)+1:])
+			}
 			return nil
 		}
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return paths, nil
+	return paths, gitIgnorePaths, nil
+}
+
+// Returns the index to the next folder.
+// If none were found, it returns an error.
+// Assumptions:
+// - The paths are in the order of filepath.WalkDir.
+// - That folders end with a forward slash '/' character.
+// - index is a valid index into paths.
+func skipDir(paths []string, index int) (int, error) {
+	// On errors, we return -2 just in case you chose not to handle the error.
+	// Because when your for loop then increments the index, it will still be negative (-1) and crash.
+	errorIndex := -2
+
+	dirToSkip := filepath.Dir(paths[index])
+
+	if dirToSkip == "/" || dirToSkip == "." {
+		return errorIndex, errors.New("skipping the whole root")
+	}
+
+	for i := index + 1; i < len(paths); i++ {
+		if filepath.Dir(paths[i]) != dirToSkip {
+			return i, nil
+		}
+	}
+
+	return errorIndex, errors.New("reached the end of paths")
+}
+
+func untrackedPathsNotIgnoredWorker(paths []string, ignoresCache map[string]*ignore.GitIgnore, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) map[string]ChangedFile {
+	out := make(map[string]ChangedFile)
+
+	// We can not use `for i := range paths` here, because then we wouldn't be able to reassign the index variable i.
+	for i := 0; i < len(paths); i++ {
+		// Path relative to the repository folder e.g. "src/file.cpp"
+		rel := paths[i]
+
+		// If it's in the .git/index, it's tracked
+		_, tracked := indexEntries[filepath.ToSlash(rel)]
+		if !tracked {
+			isDir := rel[len(rel)-1] == '/'
+
+			// Don't add ignored files
+			if respectGitIgnore && ignoreMatch(rel, ignoresCache) {
+				if isDir {
+					var err error
+					i, err = skipDir(paths, i) // PERF: Could pass rel to avoid reading it again in the body of the function
+					i -= 1                     // Since the next iteration will increment i, make sure it's going to be the correct value.
+					if err != nil {
+						break
+					}
+				}
+			} else if !isDir { // Don't add directories
+				out[rel] = ChangedFile{Untracked: true}
+			}
+		}
+	}
+
+	return out
+}
+
+// Returns untracked files that aren't ignored.
+// It recursively iterates through the directory path, ignoring files/directories named ".git" and files ignored by .gitignore
+func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
+	absPath, err := filepath.Abs(path)
+	if err == nil {
+		path = absPath
+	}
+
+	start := time.Now()
+	// Walk the directory recursively in a single thread
+	paths, gitIgnorePaths, err := getPathsRecursivelyRelativeTo(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	if gogitstatus_debug {
+		fmt.Println("Walking time:", time.Since(start))
+	}
+
+	start = time.Now()
+	// Compile all the .gitignore files we found during the directory walk
+	ignoresCache := make(map[string]*ignore.GitIgnore)
+	if respectGitIgnore {
+		for _, gitIgnorePath := range gitIgnorePaths {
+			ignore, err := ignore.CompileIgnoreFile(gitIgnorePath)
+			if err == nil {
+				// The root folder key ends up being "." in the ignoresCache
+				// because filepath.Dir("") == "."
+				pathLookup := filepath.Dir(gitIgnorePath[len(path)+1:])
+				ignoresCache[pathLookup] = ignore
+			}
+		}
+	}
+	if gogitstatus_debug {
+		fmt.Println("Compiling gitignore time:", time.Since(start))
+	}
+
+	start = time.Now()
+	numCPUs := runtime.NumCPU()
+	slices := SpreadArrayIntoSlicesForGoroutines(len(paths), numCPUs)
+	results := make([]map[string]ChangedFile, numCPUs)
+
+	var wg sync.WaitGroup
+	wg.Add(len(slices))
+	for threadIdx, slice := range slices {
+		if gogitstatus_debug {
+			fmt.Println("Slice number", threadIdx, ":", paths[slice.start:slice.start+slice.length])
+		}
+		go func(threadIdx int, slice Slice) {
+			ourSlice := paths[slice.start : slice.start+slice.length]
+			results[threadIdx] = untrackedPathsNotIgnoredWorker(ourSlice, ignoresCache, indexEntries, respectGitIgnore)
+			wg.Done()
+		}(threadIdx, slice)
+	}
+	wg.Wait()
+	if gogitstatus_debug {
+		fmt.Println("Ignore worker time:", time.Since(start))
+	}
+
+	start = time.Now()
+	// Merge the results
+	for i := 1; i < len(results); i++ {
+		for k, v := range results[i] {
+			results[0][k] = v
+		}
+	}
+	if gogitstatus_debug {
+		fmt.Println("Merge results time:", time.Since(start))
+	}
+
+	return results[0], nil
 }
 
 // Use this function to also include directories containing unstaged/untracked files
@@ -740,11 +852,19 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		start := time.Now()
 		untrackedPaths, pathsErr = UntrackedPathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
+		if gogitstatus_debug {
+			fmt.Println("Untracked time:", time.Since(start))
+		}
 		wg.Done()
 	}()
 
+	start := time.Now()
 	out, err := TrackedPathsChanged(ctx, path, indexEntries)
+	if gogitstatus_debug {
+		fmt.Println("Tracked time:", time.Since(start))
+	}
 	if err != nil {
 		return nil, err
 	}

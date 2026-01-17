@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/botondmester/goignore"
 )
 
 func printRed(text string) {
@@ -675,5 +678,99 @@ func TestSpreadArrayIntoSlicesForGoroutines(t *testing.T) {
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Fatal("Expected", test.expected, "but got:", got)
 		}
+	}
+}
+
+func TestSkipDir(t *testing.T) {
+	printGray("TestSkipDir:")
+	failed := false
+	defer func() {
+		if failed {
+			printRed(" Failed\n")
+		} else {
+			printGreen(" Success\n")
+		}
+	}()
+	type TestCase struct {
+		paths    []string
+		index    int
+		expected int // -1 meaning an error
+	}
+
+	tests := []TestCase{
+		{[]string{"folder/file.txt", "folder/file2.txt", "folder/file3.txt", "folder2/file.txt"}, 0, 3},
+		{[]string{"/", "/home/", "/home/file.txt", "/home/file2.txt", "/sauce/", "/sauce/file.txt"}, 0, -1}, // The parent folder is root, skips everything (-1)
+		{[]string{"/home/", "/home/file.txt", "/home/file2.txt", "/sauce/", "/sauce/file.txt"}, 0, 3},
+		{[]string{"/file.txt", "/file2.txt"}, 0, -1}, // The parent folder is root, skips everything (-1)
+		{[]string{"/folder/file.txt", "/folder/file2.txt", "/folder2/file.txt", "/folder2/file2.txt"}, 0, 2},
+		{[]string{"/folder/file.txt", "/folder/file2.txt", "/folder2/file.txt", "/folder2/file2.txt"}, 2, -1}, // Reached the end (-1)
+		{[]string{"hi", "hi"}, 1, -1},     // The parent folder is root ".", skips everything (-1)
+		{[]string{"."}, 0, -1},            // The parent folder is root ".", skips everything (-1)
+		{[]string{".", "./hello"}, 0, -1}, // The parent folder is root ".", skips everything (-1)
+		{[]string{"2_folder/folder/", "2_folder/folder/file.txt", "5", "4"}, 0, 2},
+		{[]string{"2_folder/folder/", "2_folder/folder/file.txt", "5", "4"}, 1, 2},
+		{[]string{"2_folder/folder/", "2_folder/folder/file.txt", "5", "4"}, 3, -1},
+		{[]string{"ignored_folder/file.txt", "file.txt"}, 0, 1},
+	}
+
+	for i, test := range tests {
+		result, err := skipDir(test.paths, test.index)
+
+		if err == nil {
+			if result != test.expected {
+				failed = true
+				t.Fatal("Expected", test.expected, "in test index", i, "but got:", result)
+			}
+		} else {
+			if test.expected != -1 {
+				failed = true
+				t.Fatal("Expected no error in test index", i, ", but got:", err.Error())
+			}
+		}
+	}
+}
+
+// This test checks if we forgot to decrement i by 1 after i = skipDir()
+func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
+	printGray("TestUntrackedPathsNotIgnoredWorker:")
+	failed := false
+	defer func() {
+		if failed {
+			printRed(" Failed\n")
+		} else {
+			printGreen(" Success\n")
+		}
+	}()
+	ignore := goignore.CompileIgnoreLines([]string{"ignored_folder/"})
+	ignoresCache := map[string]*goignore.GitIgnore{".": ignore}
+	indexEntries := make(map[string]GitIndexEntry) // Empty
+
+	// Doesn't spawn any goroutines, just runs them sequentially
+	runNumGoroutines := func(paths []string, num int) map[string]ChangedFile {
+		results := make([]map[string]ChangedFile, num)
+
+		slices := SpreadArrayIntoSlicesForGoroutines(len(paths), num)
+		for threadIdx, slice := range slices {
+			ourSlice := paths[slice.start : slice.start+slice.length]
+			results[threadIdx] = untrackedPathsNotIgnoredWorker(ourSlice, ignoresCache, indexEntries, true)
+		}
+
+		// Merge the results
+		for i := 1; i < len(results); i++ {
+			for k, v := range results[i] {
+				results[0][k] = v
+			}
+		}
+
+		return results[0]
+	}
+
+	// Test for missing decrement of i variable
+	paths := []string{"ignored_folder/", "file.txt"}
+	expected := map[string]ChangedFile{"file.txt": {Untracked: true}}
+	result := runNumGoroutines(paths, 1)
+	if !maps.Equal(result, expected) {
+		failed = true
+		t.Fatal("Expected:", expected, "but got:", result)
 	}
 }
