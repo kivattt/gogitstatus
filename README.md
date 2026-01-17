@@ -22,7 +22,7 @@ go build
 ```
 
 ## Running tests
-Run `go test` to run all the tests.
+Run `go test -race` to run all the tests.
 
 Run `go test -fuzz=FuzzParseGitIndexFromMemory` to fuzz for crashes in the `ParseGitIndexFromMemory()` function.
 
