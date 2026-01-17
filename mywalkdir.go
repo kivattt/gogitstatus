@@ -34,6 +34,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 // All the code was ripped from the Go standard library code, version go1.25.6
@@ -79,7 +81,8 @@ func walkDir(path string, d fs.DirEntry, walkDirFn fs.WalkDirFunc) error {
 	}
 
 	for _, d1 := range dirs {
-		path1 := filepath.Join(path, d1.Name())
+		//path1 := filepath.Join(path, d1.Name())
+		path1 := myJoin(path, d1.Name())
 		if err := walkDir(path1, d1, walkDirFn); err != nil {
 			if err == filepath.SkipDir {
 				break
@@ -116,4 +119,32 @@ func myWalkDir(root string, fn fs.WalkDirFunc) error {
 		return nil
 	}
 	return err
+}
+
+func myJoin(elem ...string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(elem...)
+	} else {
+		// If there's a bug here, fix the logic in ./path_plan9.go too.
+		for i, e := range elem {
+			if e != "" {
+				//return filepath.Clean(strings.Join(elem[i:], string(os.PathSeparator)))
+				return strings.Join(elem[i:], string(os.PathSeparator))
+			}
+		}
+		return ""
+	}
+}
+
+func myDir(path string) string {
+	if path == "/" {
+		return path
+	}
+
+	lastSep := strings.LastIndexByte(path, os.PathSeparator)
+	if lastSep == -1 {
+		return "."
+	}
+
+	return path[:lastSep]
 }

@@ -415,10 +415,9 @@ type ChangedFile struct {
 }
 
 func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
-	dir := filepath.Dir(path) // FIXME: Replace filepath.Dir() here because it calls the slow filepath.Clean()
+	// TODO: Use strings.indexByte directly without temporary storage to speed this up?
+	dir := myDir(path)
 	for {
-		ignore, ok := ignoresMap[dir]
-
 		// Faster than filepath.Rel()
 		var rel string
 		if dir == "." {
@@ -427,7 +426,13 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 			rel = path[len(dir)+1:]
 		}
 
+		if rel == "" {
+			return true
+		}
+
+		ignore, ok := ignoresMap[dir]
 		if ok {
+			// We don't need to to filepath.ToSlash(rel), since it's done inside goignore.
 			isIgnored, _ := ignore.MatchesPath(rel)
 			if isIgnored {
 				return true
@@ -442,7 +447,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 			return false
 		}
 
-		dir = filepath.Dir(dir)
+		dir = myDir(dir)
 	}
 }
 
@@ -453,6 +458,11 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 // paths is a list of paths relative to path.
 // gitIgnorePaths is a list of absolute paths of all the .gitignore files found.
 func getPathsRecursivelyRelativeTo(ctx context.Context, path string) (paths, gitIgnorePaths []string, err error) {
+	absPath, err := filepath.Abs(path)
+	if err == nil {
+		path = absPath
+	}
+
 	paths = make([]string, 0)
 	gitIgnorePaths = make([]string, 0)
 
@@ -510,14 +520,14 @@ func skipDir(paths []string, index int) (int, error) {
 	// Because when your for loop then increments the index, it will still be negative (-1) and crash.
 	errorIndex := -2
 
-	dirToSkip := filepath.Dir(paths[index])
+	dirToSkip := myDir(paths[index])
 
 	if dirToSkip == "/" || dirToSkip == "." {
 		return errorIndex, errors.New("skipping the whole root")
 	}
 
 	for i := index + 1; i < len(paths); i++ {
-		if filepath.Dir(paths[i]) != dirToSkip {
+		if myDir(paths[i]) != dirToSkip {
 			return i, nil
 		}
 	}
@@ -559,23 +569,13 @@ func untrackedPathsNotIgnoredWorker(paths []string, ignoresCache map[string]*ign
 
 // Returns untracked files that aren't ignored.
 // It recursively iterates through the directory path, ignoring files/directories named ".git" and files ignored by .gitignore
-func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
+func UntrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePaths []string, path string, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) (map[string]ChangedFile, error) {
 	absPath, err := filepath.Abs(path)
 	if err == nil {
 		path = absPath
 	}
 
 	start := time.Now()
-	// Walk the directory recursively in a single thread
-	paths, gitIgnorePaths, err := getPathsRecursivelyRelativeTo(ctx, path)
-	if err != nil {
-		return nil, err
-	}
-	if gogitstatus_debug {
-		fmt.Println("Walking time:", time.Since(start))
-	}
-
-	start = time.Now()
 	// Compile all the .gitignore files we found during the directory walk
 	ignoresCache := make(map[string]*ignore.GitIgnore)
 	if respectGitIgnore {
@@ -583,8 +583,8 @@ func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map
 			ignore, err := ignore.CompileIgnoreFile(gitIgnorePath)
 			if err == nil {
 				// The root folder key ends up being "." in the ignoresCache
-				// because filepath.Dir("") == "."
-				pathLookup := filepath.Dir(gitIgnorePath[len(path)+1:])
+				// because myDir("") == "."
+				pathLookup := myDir(gitIgnorePath[len(path)+1:])
 				ignoresCache[pathLookup] = ignore
 			}
 		}
@@ -601,9 +601,6 @@ func UntrackedPathsNotIgnored(ctx context.Context, path string, indexEntries map
 	var wg sync.WaitGroup
 	wg.Add(len(slices))
 	for threadIdx, slice := range slices {
-		if gogitstatus_debug {
-			fmt.Println("Slice number", threadIdx, ":", paths[slice.start:slice.start+slice.length])
-		}
 		go func(threadIdx int, slice Slice) {
 			ourSlice := paths[slice.start : slice.start+slice.length]
 			results[threadIdx] = untrackedPathsNotIgnoredWorker(ourSlice, ignoresCache, indexEntries, respectGitIgnore)
@@ -643,7 +640,7 @@ func IncludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 	for path, e := range changedFiles {
 		parent := path
 		for strings.ContainsRune(parent, os.PathSeparator) {
-			parent = filepath.Dir(parent)
+			parent = myDir(parent)
 			ret[parent] = e
 		}
 	}
@@ -670,7 +667,7 @@ func ExcludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 
 		parent := path
 		for strings.ContainsRune(parent, os.PathSeparator) {
-			parent = filepath.Dir(parent)
+			parent = myDir(parent)
 			delete(ret, parent)
 		}
 	}
@@ -701,13 +698,13 @@ func Status(path string) (map[string]ChangedFile, error) {
 
 // Cancellable with context, takes in the root path of a local git repository and returns the list of changed (unstaged/untracked) files in filepaths relative to path, or an error.
 func StatusWithContext(ctx context.Context, path string) (map[string]ChangedFile, error) {
-	dotGitPath := filepath.Join(path, ".git")
+	dotGitPath := myJoin(path, ".git")
 	stat, err := os.Stat(dotGitPath)
 	if err != nil || !stat.IsDir() {
 		return nil, errors.New("not a Git repository")
 	}
 
-	return StatusRaw(ctx, path, filepath.Join(dotGitPath, "index"), true)
+	return StatusRaw(ctx, path, myJoin(dotGitPath, "index"), true)
 }
 
 type Slice struct {
@@ -836,13 +833,36 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		return nil, errors.New("path does not exist: " + path)
 	}
 
+	var paths []string
+	var gitIgnorePaths []string
+	var walkDirError error
+	var walkDirWaitGroup sync.WaitGroup
+	walkDirWaitGroup.Add(1)
+	go func() {
+		start := time.Now()
+		// Walk the directory recursively in a single thread
+		paths, gitIgnorePaths, walkDirError = getPathsRecursivelyRelativeTo(ctx, path)
+		if gogitstatus_debug {
+			fmt.Println("Walking time:", time.Since(start))
+		}
+		walkDirWaitGroup.Done()
+	}()
+
 	// If .git/index file is missing, all files are unstaged/untracked
 	_, err = os.Stat(gitIndexPath)
 	if err != nil {
-		return UntrackedPathsNotIgnored(ctx, path, make(map[string]GitIndexEntry), respectGitIgnore)
+		walkDirWaitGroup.Wait()
+		if walkDirError != nil {
+			return nil, walkDirError
+		}
+		return UntrackedPathsNotIgnored(ctx, paths, gitIgnorePaths, path, make(map[string]GitIndexEntry), respectGitIgnore)
 	}
 
+	start := time.Now()
 	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
+	if gogitstatus_debug {
+		fmt.Println("ParseGitIndex time:", time.Since(start))
+	}
 	if err != nil {
 		return nil, errors.New("unable to read " + gitIndexPath + ": " + err.Error())
 	}
@@ -852,15 +872,18 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		start := time.Now()
-		untrackedPaths, pathsErr = UntrackedPathsNotIgnored(ctx, path, indexEntries, respectGitIgnore)
-		if gogitstatus_debug {
-			fmt.Println("Untracked time:", time.Since(start))
+		defer wg.Done()
+
+		walkDirWaitGroup.Wait()
+		if walkDirError != nil {
+			pathsErr = walkDirError
+			return
 		}
-		wg.Done()
+
+		untrackedPaths, pathsErr = UntrackedPathsNotIgnored(ctx, paths, gitIgnorePaths, path, indexEntries, respectGitIgnore)
 	}()
 
-	start := time.Now()
+	start = time.Now()
 	out, err := TrackedPathsChanged(ctx, path, indexEntries)
 	if gogitstatus_debug {
 		fmt.Println("Tracked time:", time.Since(start))
