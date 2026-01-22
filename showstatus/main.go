@@ -21,8 +21,16 @@ func main() {
 	args := os.Args
 
 	path, _ := os.Getwd()
-	if len(args) > 1 {
-		path = args[1]
+	verbose := false
+
+	// I hate the flag package, this is better
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--verbose" {
+			verbose = true
+		} else {
+			// Last arg that isn't "--verbose" is the path
+			path = args[i]
+		}
 	}
 
 	paths, err := gogitstatus.Status(path)
@@ -70,7 +78,9 @@ func main() {
 			whatChangedStr = "modified:  "
 		}
 
-		//whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
+		if verbose {
+			whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
+		}
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
@@ -102,7 +112,9 @@ func main() {
 			whatChangedStr = "modified:  "
 		}
 
-		//whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
+		if verbose {
+			whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
+		}
 		if whatChangedStr != "" {
 			whatChangedStr += " "
 		}
