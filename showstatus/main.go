@@ -112,10 +112,9 @@ func main() {
 			whatChangedStr = "modified:  "
 		}
 
-		if verbose {
-			whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
-		}
+		whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
 		if whatChangedStr != "" {
+			panic("Somehow there's a whatchanged on an untracked file...")
 			whatChangedStr += " "
 		}
 
