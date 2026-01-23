@@ -23,9 +23,10 @@ import (
 )
 
 // Debug output
-var gogitstatus_debug = false
+var gogitstatus_debug_profiling = false
 var gogitstatus_debug_skipdir = false
 var gogitstatus_debug_ignored = false
+var gogitstatus_debug_goroutine_slices = false
 
 var gogitstatus_debug_disable_skipdir = false
 
@@ -620,7 +621,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 			}
 		}
 	}
-	if gogitstatus_debug {
+	if gogitstatus_debug_profiling {
 		fmt.Println("Compiling gitignore time:", time.Since(start))
 	}
 
@@ -631,7 +632,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 	var wg sync.WaitGroup
 	wg.Add(len(slices))
 	for threadIdx, slice := range slices {
-		if gogitstatus_debug {
+		if gogitstatus_debug_goroutine_slices {
 			fmt.Println("GOROUTINE NUMBER", threadIdx, "slice:", paths[slice.start:slice.start+slice.length])
 		}
 		go func(threadIdx int, slice Slice) {
@@ -641,7 +642,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 		}(threadIdx, slice)
 	}
 	wg.Wait()
-	if gogitstatus_debug {
+	if gogitstatus_debug_profiling {
 		fmt.Println("Ignore worker time:", time.Since(start))
 	}
 
@@ -652,7 +653,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 			results[0][k] = v
 		}
 	}
-	if gogitstatus_debug {
+	if gogitstatus_debug_profiling {
 		fmt.Println("Merge results time:", time.Since(start))
 	}
 
@@ -881,7 +882,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		start := time.Now()
 		// Walk the directory recursively in a single thread
 		paths, gitIgnorePaths, walkDirError = getPathsRecursivelyRelativeTo(ctx, path)
-		if gogitstatus_debug {
+		if gogitstatus_debug_profiling {
 			fmt.Println("Walking time:", time.Since(start))
 		}
 		walkDirWaitGroup.Done()
@@ -899,7 +900,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 
 	start := time.Now()
 	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
-	if gogitstatus_debug {
+	if gogitstatus_debug_profiling {
 		fmt.Println("ParseGitIndex time:", time.Since(start))
 	}
 	if err != nil {
@@ -924,7 +925,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 
 	start = time.Now()
 	out, err := TrackedPathsChanged(ctx, path, indexEntries, numCPUs)
-	if gogitstatus_debug {
+	if gogitstatus_debug_profiling {
 		fmt.Println("Tracked time:", time.Since(start))
 	}
 	if err != nil {
