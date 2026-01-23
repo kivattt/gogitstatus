@@ -802,7 +802,7 @@ func TrackedPathsChanged(ctx context.Context, path string, indexEntries map[stri
 		entry GitIndexEntry
 	}
 
-	indexEntriesSlice := make([]IndexEntry, 0)
+	indexEntriesSlice := make([]IndexEntry, 0, len(indexEntries))
 	for k, v := range indexEntries {
 		indexEntriesSlice = append(indexEntriesSlice, IndexEntry{
 			path:  k,
