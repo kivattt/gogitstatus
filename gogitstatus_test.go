@@ -256,45 +256,63 @@ func TestStatus(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		changedFiles, err := Status(filesExtractPath)
+
+		seeIfFailing := func(changedFiles map[string]ChangedFile, err error) bool {
+			if expectedAnyError && err == nil {
+				fmt.Println("expected any error, but got nil")
+				return true
+			}
+
+			if !expectedAnyError && expectedError == nil && err != nil {
+				printRed("Failed\n")
+				fmt.Println("expected no error, but got: " + err.Error())
+				return true
+			}
+
+			if !expectedAnyError && err != nil && expectedError != nil {
+				if err.Error() != expectedError.Error() {
+					printRed("Failed\n")
+					fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+					return true
+				}
+			}
+
+			if !(len(changedFiles) == 0 && len(expectedChangedFiles) == 0) && !reflect.DeepEqual(changedFiles, expectedChangedFiles) {
+				printRed("Failed\n")
+
+				fmt.Println("Expected entries:")
+				printChangedFiles(expectedChangedFiles)
+				fmt.Println("But got:")
+				printChangedFiles(changedFiles)
+				return true
+			}
+
+			return false
+		}
+
+		// Multi-threaded:
+		// Atleast 2 goroutines, used to test multithreaded / parallel functions
+		numCPUs := max(2, runtime.NumCPU())
+		changedFiles, err := Status(filesExtractPath, numCPUs)
+		failed := seeIfFailing(changedFiles, err)
+		if failed {
+			testFailed = true
+			continue
+		}
+
+		// Used to make some multi-threaded functions more predictable for testing. (I had a skipDir() bug which required this)
+		numCPUs = 1
+		changedFilesSerial, errSerial := Status(filesExtractPath, numCPUs)
+		failed = seeIfFailing(changedFilesSerial, errSerial)
+		if failed {
+			testFailed = true
+			continue
+		}
 
 		// Let's also check for a crash when cancelling a StatusWithContext() call while we're at it.
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		go StatusWithContext(ctx, filesExtractPath)
 		cancelFunc()
-
-		if expectedAnyError && err == nil {
-			fmt.Println("expected any error, but got nil")
-			testFailed = true
-			continue
-		}
-
-		if !expectedAnyError && expectedError == nil && err != nil {
-			printRed("Failed\n")
-			fmt.Println("expected no error, but got: " + err.Error())
-			testFailed = true
-			continue
-		}
-
-		if !expectedAnyError && err != nil && expectedError != nil {
-			if err.Error() != expectedError.Error() {
-				printRed("Failed\n")
-				fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
-				testFailed = true
-				continue
-			}
-		}
-
-		if !(len(changedFiles) == 0 && len(expectedChangedFiles) == 0) && !reflect.DeepEqual(changedFiles, expectedChangedFiles) {
-			printRed("Failed\n")
-
-			fmt.Println("Expected entries:")
-			printChangedFiles(expectedChangedFiles)
-			fmt.Println("But got:")
-			printChangedFiles(changedFiles)
-			testFailed = true
-			continue
-		}
 
 		printGreen("Success\n")
 	}
@@ -711,6 +729,10 @@ func TestSkipDir(t *testing.T) {
 		{[]string{"2_folder/folder/", "2_folder/folder/file.txt", "5", "4"}, 1, 2},
 		{[]string{"2_folder/folder/", "2_folder/folder/file.txt", "5", "4"}, 3, -1},
 		{[]string{"ignored_folder/file.txt", "file.txt"}, 0, 1},
+
+		{[]string{"folder/", "folder/hi"}, 0, -1},
+		{[]string{"folder/", "folder/hi/"}, 0, -1},         // A child folder is not supposed to be the next folder.
+		{[]string{"folder/file.txt", "folder/hi/"}, 0, -1}, // A child folder is not supposed to be the next folder.
 	}
 
 	for i, test := range tests {
