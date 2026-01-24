@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	//	"github.com/sabhiram/go-gitignore"
+	//"github.com/sabhiram/go-gitignore"
 	ignore "github.com/botondmester/goignore"
 )
 
@@ -439,8 +439,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 		ignore, ok := ignoresMap[dir]
 		if ok {
 			// We don't need to to filepath.ToSlash(rel), since it's done inside goignore.
-			isIgnored, _ := ignore.MatchesPath(rel)
-			if isIgnored {
+			if ignore.MatchesPath(rel) {
 				return true
 			}
 		}

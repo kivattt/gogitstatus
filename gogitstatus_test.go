@@ -19,7 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/botondmester/goignore"
+	//"github.com/sabhiram/go-gitignore"
+	ignore "github.com/botondmester/goignore"
 )
 
 func printRed(text string) {
@@ -763,8 +764,8 @@ func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
 			printGreen(" Success\n")
 		}
 	}()
-	ignore := goignore.CompileIgnoreLines([]string{"ignored_folder/"})
-	ignoresCache := map[string]*goignore.GitIgnore{".": ignore}
+	ignoreObj := ignore.CompileIgnoreLines("ignored_folder/")
+	ignoresCache := map[string]*ignore.GitIgnore{".": ignoreObj}
 	indexEntries := make(map[string]GitIndexEntry) // Empty
 
 	// Doesn't spawn any goroutines, just runs them sequentially
