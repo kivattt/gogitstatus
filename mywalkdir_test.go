@@ -18,7 +18,7 @@ func TestMyDir(t *testing.T) {
 	for _, test := range tests {
 		result := myDir(test.path)
 		if result != test.expected {
-			t.Fatal("Expected:", test.expected, "but got:", result)
+			t.Fatal("Expected: \"" + test.expected + "\" but got: \"" + result + "\"")
 		}
 	}
 }
