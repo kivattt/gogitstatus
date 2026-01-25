@@ -438,7 +438,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 
 		ignore, ok := ignoresMap[dir]
 		if ok {
-			// We don't need to to filepath.ToSlash(rel), since it's done inside goignore.
+			// We don't need to do filepath.ToSlash(rel), since it's done inside goignore.
 			if ignore.MatchesPath(rel) {
 				return true
 			}
