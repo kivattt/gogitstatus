@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 
 	"github.com/kivattt/gogitstatus"
@@ -16,6 +17,10 @@ func main() {
 	useColor := true
 	if !term.IsTerminal(int(os.Stdout.Fd())) {
 		useColor = false // Output is piped, don't colorize the output
+	}
+
+	if runtime.GOOS == "windows" {
+		useColor = false
 	}
 
 	args := os.Args
