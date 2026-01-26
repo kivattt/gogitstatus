@@ -136,16 +136,7 @@ func myJoin(elem ...string) string {
 	}
 }
 
+// This is here if I ever want to implement a faster version of filepath.Dir()
 func myDir(path string) string {
-	path = filepath.ToSlash(path)
-	if path == "/" {
-		return path
-	}
-
-	lastSep := strings.LastIndexByte(path, '/')
-	if lastSep == -1 {
-		return "."
-	}
-
-	return path[:lastSep]
+	return filepath.Dir(path)
 }
