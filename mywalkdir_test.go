@@ -1,6 +1,9 @@
 package gogitstatus
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestMyDir(t *testing.T) {
 	type TestCase struct {
@@ -17,7 +20,7 @@ func TestMyDir(t *testing.T) {
 	}
 	for _, test := range tests {
 		result := myDir(test.path)
-		if result != test.expected {
+		if result != filepath.FromSlash(test.expected) {
 			t.Fatal("Expected: \"" + test.expected + "\" but got: \"" + result + "\"")
 		}
 	}
