@@ -137,11 +137,12 @@ func myJoin(elem ...string) string {
 }
 
 func myDir(path string) string {
+	path = filepath.ToSlash(path)
 	if path == "/" {
 		return path
 	}
 
-	lastSep := strings.LastIndexByte(path, os.PathSeparator)
+	lastSep := strings.LastIndexByte(path, '/')
 	if lastSep == -1 {
 		return "."
 	}
