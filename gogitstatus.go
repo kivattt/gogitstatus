@@ -525,15 +525,14 @@ func skipDir(paths []string, index int) (int, error) {
 	// Because when your for loop then increments the index, it will still be negative (-1) and crash.
 	errorIndex := -2
 
-	dirToSkip := myDir(paths[index])
+	dirToSkip := filepath.ToSlash(myDir(paths[index]))
 
 	if dirToSkip == "/" || dirToSkip == "." {
 		return errorIndex, errors.New("skipping the whole root")
 	}
 
 	// myDir() strips any forward-slashes but we need it for the prefix-check.
-	//dirToSkip += "/"
-	dirToSkip += string(os.PathSeparator)
+	dirToSkip += "/"
 
 	for i := index + 1; i < len(paths); i++ {
 		if !strings.HasPrefix(paths[i], dirToSkip) {
