@@ -26,6 +26,8 @@ Run `go test -race` to run all the tests.
 
 Run `go test -fuzz=FuzzParseGitIndexFromMemory` to fuzz for crashes in the `ParseGitIndexFromMemory()` function.
 
+If you are developing on Linux, you can run the `./run_windows_test.sh` script to test on "Windows" with [wine](https://www.winehq.org/)
+
 ## Git Index file format resources
 https://git-scm.com/docs/index-format (missing some visual separation...)\
 https://github.com/git/git/blob/master/read-cache.c
