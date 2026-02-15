@@ -19,3 +19,19 @@ if negation pattern:
 	if any parent folder ignored in known list/map lookup
 		skip line
 
+
+
+My naive fix of the re-include rule has a bug with this:
+
+.gitignore:
+```
+ignored_folder/
+!ignored_folder/
+```
+
+files:
+```
+.git/
+.gitignore
+ignored_folder/sub/file.txt
+```
