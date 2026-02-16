@@ -1,0 +1,2 @@
+Untracked .gitignore
+Untracked folder/sub/file.txt

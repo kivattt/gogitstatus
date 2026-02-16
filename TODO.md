@@ -1,10 +1,10 @@
-- Create a test that fails when myDir() is broken on Windows (returning "." or not dealing with forward-slashes on Windows)
 - fix negation bug in goignore (See: test #28)
 - theres a separate bug in projects/synth concerning hashMatches(), comment out its debug code to see.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead
-- in goignore: make fast path when pattern has no wildcards
+- in goignore: make fast path when pattern has no wildcards?
 - Add cancellation select{} block in untrackedPathsNotIgnored
-- fen: add hover + click to copy on Windows
+- Make test output better (horizontal 1, 2, 3... instead of taking up so many lines, or omitting successful tests)
+- Make a visualization tool for cancellation latencies at different intervals (probably just write a .csv we can graph using a tool)
 
 
 
@@ -18,20 +18,3 @@
 if negation pattern:
 	if any parent folder ignored in known list/map lookup
 		skip line
-
-
-
-My naive fix of the re-include rule has a bug with this:
-
-.gitignore:
-```
-ignored_folder/
-!ignored_folder/
-```
-
-files:
-```
-.git/
-.gitignore
-ignored_folder/sub/file.txt
-```

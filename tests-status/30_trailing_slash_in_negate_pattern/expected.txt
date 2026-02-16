@@ -1,0 +1,2 @@
+Untracked .gitignore
+Untracked ignored_folder/file

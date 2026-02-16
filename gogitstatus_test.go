@@ -258,55 +258,81 @@ func TestStatus(t *testing.T) {
 			}
 		}
 
-		seeIfFailing := func(changedFiles map[string]ChangedFile, err error) bool {
+		seeIfFailing := func(changedFiles map[string]ChangedFile, err error,
+			expectedAnyError bool, expectedError error, expectedChangedFiles map[string]ChangedFile,
+			outputToStdout bool) bool {
 			if expectedAnyError && err == nil {
-				fmt.Println("expected any error, but got nil")
+				if outputToStdout {
+					fmt.Println("expected any error, but got nil")
+				}
 				return true
 			}
 
 			if !expectedAnyError && expectedError == nil && err != nil {
-				printRed("Failed\n")
-				fmt.Println("expected no error, but got: " + err.Error())
+				if outputToStdout {
+					printRed("Failed\n")
+					fmt.Println("expected no error, but got: " + err.Error())
+				}
 				return true
 			}
 
 			if !expectedAnyError && err != nil && expectedError != nil {
 				if err.Error() != expectedError.Error() {
-					printRed("Failed\n")
-					fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+					if outputToStdout {
+						printRed("Failed\n")
+						fmt.Println("expected error text \"" + expectedError.Error() + "\", but got: \"" + err.Error() + "\"")
+					}
 					return true
 				}
 			}
 
 			if !(len(changedFiles) == 0 && len(expectedChangedFiles) == 0) && !reflect.DeepEqual(changedFiles, expectedChangedFiles) {
-				printRed("Failed\n")
+				if outputToStdout {
+					printRed("Failed\n")
 
-				fmt.Println("Expected entries:")
-				printChangedFiles(expectedChangedFiles)
-				fmt.Println("But got:")
-				printChangedFiles(changedFiles)
+					fmt.Println("Expected entries:")
+					printChangedFiles(expectedChangedFiles)
+					fmt.Println("But got:")
+					printChangedFiles(changedFiles)
+				}
 				return true
 			}
 
 			return false
 		}
 
-		// Multi-threaded:
-		// Atleast 2 goroutines, used to test multithreaded / parallel functions
-		numCPUs := max(2, runtime.NumCPU())
-		changedFiles, err := Status(filesExtractPath, numCPUs)
-		failed := seeIfFailing(changedFiles, err)
-		if failed {
-			testFailed = true
-			continue
-		}
+		singleThreadFailed := false
+		multiThreadFailed := false
 
 		// Used to make some multi-threaded functions more predictable for testing. (I had a skipDir() bug which required this)
-		numCPUs = 1
+		numCPUs := 1
 		changedFilesSerial, errSerial := Status(filesExtractPath, numCPUs)
-		failed = seeIfFailing(changedFilesSerial, errSerial)
+		failed := seeIfFailing(changedFilesSerial, errSerial, expectedAnyError, expectedError, expectedChangedFiles, true)
 		if failed {
+			singleThreadFailed = true
 			testFailed = true
+		}
+
+		// Multi-threaded:
+		// Atleast 2 goroutines, used to test multithreaded / parallel functions
+		numCPUs = max(2, runtime.NumCPU())
+		changedFiles, err := Status(filesExtractPath, numCPUs)
+		failed = seeIfFailing(changedFiles, err, expectedAnyError, expectedError, expectedChangedFiles, !singleThreadFailed) // If the single-threaded test failed, don't output anything from this multi-threaded test
+		if failed {
+			multiThreadFailed = true
+			testFailed = true
+		}
+
+		// Special yellow warnings when a test failed only in single or multi-threaded, but not in the other
+		if multiThreadFailed && (!singleThreadFailed) {
+			fmt.Println("\x1b[33m^ Failed only when running multi-threaded (" + strconv.Itoa(numCPUs) + " CPUs) (Threading bug?)\x1b[0m")
+		} else if singleThreadFailed && (!multiThreadFailed) {
+			fmt.Println("\x1b[33m^ Failed only when running single-threaded !")
+			fmt.Println("  May be a bug in goignore, or our skipdir logic? Try setting gogitstatus_debug_disable_skipdir = true.")
+			fmt.Println("  If that fixes it, it's probably one of those two reasons.\x1b[0m")
+		}
+
+		if singleThreadFailed || multiThreadFailed {
 			continue
 		}
 

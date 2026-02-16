@@ -24,11 +24,11 @@ import (
 
 // Debug output
 var gogitstatus_debug_profiling = false
-var gogitstatus_debug_skipdir = false
 var gogitstatus_debug_ignored = false
 var gogitstatus_debug_goroutine_slices = false
 
 var gogitstatus_debug_disable_skipdir = false
+var gogitstatus_debug_skipdir = false
 
 // A small subset of a Git index entry
 type GitIndexEntry struct {
@@ -421,8 +421,16 @@ type ChangedFile struct {
 }
 
 func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
-	// TODO: Use strings.indexByte directly without temporary storage to speed this up?
-	dir := myDir(path)
+	// TODO: Use strings.indexByte directly without temporary storage to speed up filepath.Dir()?
+
+	dir := ""
+	if path[len(path)-1] == '/' {
+		// We hint something is a folder with a trailing '/', so remove it to get the real parent folder
+		dir = myDir(path[:len(path)-1])
+	} else {
+		dir = myDir(path)
+	}
+
 	for {
 		// Faster than filepath.Rel()
 		var rel string
@@ -554,11 +562,7 @@ func untrackedPathsNotIgnoredWorker(paths []string, ignoresCache map[string]*ign
 		// If it's in the .git/index, it's tracked
 		_, tracked := indexEntries[filepath.ToSlash(rel)]
 		if !tracked {
-			isDir := rel[len(rel)-1] == '/'
-			if isDir {
-				// We don't want to pass a trailing slash to ignoreMatch()
-				rel = rel[:len(rel)-1]
-			}
+			isDir := rel[len(rel)-1] == '/' // We added this '/' manually in getPathsRecursivelyRelativeTo(), so no cross-platform worries.
 
 			// Don't add ignored files
 			if respectGitIgnore && ignoreMatch(rel, ignoresCache) {
