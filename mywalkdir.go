@@ -135,8 +135,3 @@ func myJoin(elem ...string) string {
 		return ""
 	}
 }
-
-// This is here if I ever want to implement a faster version of filepath.Dir()
-func myDir(path string) string {
-	return filepath.Dir(path)
-}

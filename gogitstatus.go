@@ -426,9 +426,9 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 	dir := ""
 	if path[len(path)-1] == '/' {
 		// We hint something is a folder with a trailing '/', so remove it to get the real parent folder
-		dir = myDir(path[:len(path)-1])
+		dir = filepath.Dir(path[:len(path)-1])
 	} else {
-		dir = myDir(path)
+		dir = filepath.Dir(path)
 	}
 
 	for {
@@ -460,7 +460,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 			return false
 		}
 
-		dir = myDir(dir)
+		dir = filepath.Dir(dir)
 	}
 }
 
@@ -533,7 +533,7 @@ func skipDir(paths []string, index int) (int, error) {
 	// Because when your for loop then increments the index, it will still be negative (-1) and crash.
 	errorIndex := -2
 
-	dirToSkip := filepath.ToSlash(myDir(paths[index]))
+	dirToSkip := filepath.ToSlash(filepath.Dir(paths[index]))
 
 	if dirToSkip == "/" || dirToSkip == "." {
 		return errorIndex, errors.New("skipping the whole root")
@@ -618,7 +618,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 			if err == nil {
 				// The root folder key ends up being "." in the ignoresCache
 				// because myDir("") == "."
-				pathLookup := myDir(gitIgnorePath[len(path)+1:])
+				pathLookup := filepath.Dir(gitIgnorePath[len(path)+1:])
 				ignoresCache[pathLookup] = ignore
 			}
 		}
@@ -676,7 +676,7 @@ func IncludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 	for path, e := range changedFiles {
 		parent := path
 		for strings.ContainsRune(parent, os.PathSeparator) {
-			parent = myDir(parent)
+			parent = filepath.Dir(parent)
 			ret[parent] = e
 		}
 	}
@@ -703,7 +703,7 @@ func ExcludingDirectories(changedFiles map[string]ChangedFile) map[string]Change
 
 		parent := path
 		for strings.ContainsRune(parent, os.PathSeparator) {
-			parent = myDir(parent)
+			parent = filepath.Dir(parent)
 			delete(ret, parent)
 		}
 	}
