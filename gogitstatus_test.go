@@ -328,8 +328,8 @@ func TestStatus(t *testing.T) {
 			fmt.Println("\x1b[33m^ Failed only when running multi-threaded (" + strconv.Itoa(numCPUs) + " CPUs) (Threading bug?)\x1b[0m")
 		} else if singleThreadFailed && (!multiThreadFailed) {
 			fmt.Println("\x1b[33m^ Failed only when running single-threaded !")
-			fmt.Println("  May be a bug in goignore, or our skipdir logic? Try setting gogitstatus_debug_disable_skipdir = true.")
-			fmt.Println("  If that fixes it, it's probably one of those two reasons.\x1b[0m")
+			fmt.Println("  May be a bug in our skipdir logic? Try setting gogitstatus_debug_disable_skipdir = true.")
+			fmt.Println("  If that fixes it, it's probably that.\x1b[0m")
 		}
 
 		if singleThreadFailed || multiThreadFailed {
