@@ -10,6 +10,4 @@ if [ ! -d $bin ]; then
 	mkdir $bin
 fi
 
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o $bin/windows-amd64
-
-wine $bin/windows-amd64
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o $bin/windows-amd64 && wine $bin/windows-amd64
