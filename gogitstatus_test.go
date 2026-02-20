@@ -325,7 +325,7 @@ func TestStatus(t *testing.T) {
 
 		// Special yellow warnings when a test failed only in single or multi-threaded, but not in the other
 		if multiThreadFailed && (!singleThreadFailed) {
-			fmt.Println("\x1b[33m^ Failed only when running multi-threaded (" + strconv.Itoa(numCPUs) + " CPUs) (Threading bug?)\x1b[0m")
+			fmt.Println("\x1b[33m^ Failed only when running multi-threaded (" + strconv.Itoa(numCPUs) + " CPUs) (Bug in goignore which would otherwise be masked by our skipping of directories? Or just a threading bug?)\x1b[0m")
 		} else if singleThreadFailed && (!multiThreadFailed) {
 			fmt.Println("\x1b[33m^ Failed only when running single-threaded !")
 			fmt.Println("  May be a bug in our skipdir logic? Try setting gogitstatus_debug_disable_skipdir = true.")
