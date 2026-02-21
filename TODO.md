@@ -1,11 +1,11 @@
-- fix negation bug in goignore (See: test #28)
+- We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
+
 - theres a separate bug in projects/synth concerning hashMatches(), comment out its debug code to see.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead
 - in goignore: make fast path when pattern has no wildcards?
 - Add cancellation select{} block in untrackedPathsNotIgnored
 - Make test output better (horizontal 1, 2, 3... instead of taking up so many lines, or omitting successful tests)
 - Make a visualization tool for cancellation latencies at different intervals (probably just write a .csv we can graph using a tool)
-
 
 
 - (BAD) doing twice the work by checking if parent folders are ignored
