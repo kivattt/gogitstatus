@@ -1,6 +1,7 @@
-- We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
+- The bug in projects/synth is because of .gitattributes doing `text eol=crlf` which allows the file to differ from the .git/objects/ it belongs to, e.g. if hashMatches() doesn't match, we should re-check with CRLF line-endings converted (HACKY, since the correct way would be to parse .gitattributes respecting the proper hierarchy).
+- Do an early return if stat filesize differs, before we do a hash check in hashMatches(). Then remove the TODO: comment for that
 
-- theres a separate bug in projects/synth concerning hashMatches(), comment out its debug code to see.
+- We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead
 - in goignore: make fast path when pattern has no wildcards?
 - Add cancellation select{} block in untrackedPathsNotIgnored

@@ -408,6 +408,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	// TODO: Store mtime and ctime to check for change here, as is done in the match_stat_data() function in Git
 
+	// TODO: Do an early return if stat filesize differs, before we do a hash check.
 	if !hashMatches(entryFullPath, stat, entry.Hash[:]) {
 		whatChanged |= DATA_CHANGED
 	}
