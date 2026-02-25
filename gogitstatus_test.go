@@ -863,9 +863,15 @@ func TestBenchmarkConvertCRLFToLF(t *testing.T) {
 		fileData = append(fileData, data)
 	}
 
+	defer func() {
+		for _, data := range fileData {
+			closeFileData(data)
+		}
+	}()
+
 	/* Average case, using files from test-data/benchmark_crlf_conversion */
 	nTimes := 1000
-	printGray("[Benchmark] ConvertCRLFToLF() " + strconv.Itoa(nTimes) + " times on " + strconv.Itoa(totalBytes/1000) + " kB: ")
+	printGray("[Benchmark] ConvertCRLFToLF() " + strconv.Itoa(nTimes) + " times on " + strconv.Itoa(totalBytes/1000) + " kB total (" + strconv.Itoa(len(fileData)) + " files): ")
 	start := time.Now()
 	for i := 0; i < nTimes; i++ {
 		for _, data := range fileData {

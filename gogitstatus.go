@@ -296,11 +296,13 @@ func convertCRLFToLF(data []byte) []byte {
 	return out
 }
 
-// If the hash doesn't match, we also attempt to hash with converted line endings LF/CRLF
-func hashMatchesPathHack(path string, stat os.FileInfo, hash []byte) bool {
-	if hashMatchesPath(path, stat, hash) {
+func hashMatchesFileOrWithLineEndingConvertedHack(hash []byte, path string, stat os.FileInfo) bool {
+	if hashMatchesFile(hash, path, stat) {
 		return true
 	}
+
+	// HACK: If the hash doesn't match, we also attempt to hash with converted line endings LF/CRLF
+	// The proper way to go about this would be to figure out if/how to convert line endings via something like .gitattributes
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -311,9 +313,10 @@ func hashMatchesPathHack(path string, stat os.FileInfo, hash []byte) bool {
 	if err != nil {
 		return false
 	}
+	defer closeFileData(data)
 
 	crlf := convertCRLFToLF(data)
-	if hashMatches(crlf, hash) {
+	if hashMatches(hash, crlf) {
 		return true
 	}
 
@@ -325,7 +328,7 @@ func hashMatchesPathHack(path string, stat os.FileInfo, hash []byte) bool {
 	return false
 }
 
-func hashMatchesPath(path string, stat os.FileInfo, hash []byte) bool {
+func hashMatchesFile(hash []byte, path string, stat os.FileInfo) bool {
 	// Symlinks are hashed with the target path, not the data of the target file
 	// On Windows, symlinks are stored as regular files (with target path as the file data), so we handle them as such later
 	if runtime.GOOS != "windows" && stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
@@ -334,7 +337,7 @@ func hashMatchesPath(path string, stat os.FileInfo, hash []byte) bool {
 			return false
 		}
 
-		return hashMatches([]byte(targetPath), hash)
+		return hashMatches(hash, []byte(targetPath))
 	}
 
 	file, err := os.Open(path)
@@ -349,10 +352,10 @@ func hashMatchesPath(path string, stat os.FileInfo, hash []byte) bool {
 	}
 	defer closeFileData(data)
 
-	return hashMatches(data, hash)
+	return hashMatches(hash, data)
 }
 
-func hashMatches(data []byte, hash []byte) bool {
+func hashMatches(hash, data []byte) bool {
 	newHash := sha1.New()
 	_, err := newHash.Write(append([]byte("blob "+strconv.FormatInt(int64(len(data)), 10)), 0))
 	if err != nil {
@@ -480,7 +483,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	if entry.FileSize != uint32(stat.Size()) {
 		whatChanged |= DATA_CHANGED
-	} else if !hashMatchesPathHack(entryFullPath, stat, entry.Hash[:]) {
+	} else if !hashMatchesFileOrWithLineEndingConvertedHack(entry.Hash[:], entryFullPath, stat) {
 		whatChanged |= DATA_CHANGED
 	}
 
