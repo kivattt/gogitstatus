@@ -259,7 +259,7 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 }
 
 /*func convertLFToCRLF(data []byte) []byte {
-	
+
 }*/
 
 func convertCRLFToLF(data []byte) []byte {

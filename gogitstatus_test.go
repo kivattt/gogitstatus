@@ -654,7 +654,7 @@ func TestParseGitIndexFromMemoryUntrustedAllocationCount(t *testing.T) {
 func FuzzParseGitIndexFromMemory(f *testing.F) {
 	files, err := os.ReadDir("test-data" + string(os.PathSeparator) + "fuzz_indexes")
 	if err != nil {
-		f.Fatal("Failed to open test-data" + string(os.PathSeparator) + "fuzz_indexes:", err)
+		f.Fatal("Failed to open test-data"+string(os.PathSeparator)+"fuzz_indexes:", err)
 	}
 
 	for _, file := range files {
@@ -814,7 +814,7 @@ func TestConvertCRLFToLF(t *testing.T) {
 	}()
 
 	type TestCase struct {
-		input string
+		input    string
 		expected string
 	}
 
@@ -865,7 +865,7 @@ func TestBenchmarkConvertCRLFToLF(t *testing.T) {
 
 	/* Average case, using files from test-data/benchmark_crlf_conversion */
 	nTimes := 1000
-	printGray("[Benchmark] ConvertCRLFToLF() " + strconv.Itoa(nTimes) + " times on " + strconv.Itoa(totalBytes / 1000) + " kB: ")
+	printGray("[Benchmark] ConvertCRLFToLF() " + strconv.Itoa(nTimes) + " times on " + strconv.Itoa(totalBytes/1000) + " kB: ")
 	start := time.Now()
 	for i := 0; i < nTimes; i++ {
 		for _, data := range fileData {
