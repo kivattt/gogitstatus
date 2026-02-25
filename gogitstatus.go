@@ -265,7 +265,28 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 func convertCRLFToLF(data []byte) []byte {
 	out := make([]byte, 0, len(data))
 
-	// FIXME: Use indexByte to skip to next \r to batch-add
+	// Poor bytes.IndexByte() implementation
+	// It's 2x faster in the average case, but 13x slower in worst case compared to the simple one below.
+
+	/*i := bytes.IndexByte(data, '\r')
+	if i == -1 {
+		return data
+	}
+	out = append(out, data[:i]...)
+
+	for {
+		oldI := i
+		next := bytes.IndexByte(data[i+1:], '\r')
+		if next == -1 {
+			i += next + 1
+			out = append(out, data[oldI+1:]...)
+			return out
+		}
+
+		i += next + 1
+		out = append(out, data[oldI+1:i]...)
+	}*/
+
 	for _, c := range data {
 		if c != '\r' {
 			out = append(out, c)

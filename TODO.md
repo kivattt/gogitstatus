@@ -1,5 +1,4 @@
-- The bug in projects/synth is because of .gitattributes doing `text eol=crlf` which allows the file to differ from the .git/objects/ it belongs to, e.g. if hashMatches() doesn't match, we should re-check with CRLF line-endings converted (HACKY, since the correct way would be to parse .gitattributes respecting the proper hierarchy).
-- Do an early return if stat filesize differs, before we do a hash check in hashMatches(). Then remove the TODO: comment for that
+- Add a test for CRLF issue where the file only contains carriage returns '\r'. Because maybe Git converts only \r\n instead of simply removing \r
 
 - We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead

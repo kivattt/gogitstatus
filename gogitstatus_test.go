@@ -3,6 +3,7 @@ package gogitstatus
 import (
 	"archive/zip"
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -651,13 +652,13 @@ func TestParseGitIndexFromMemoryUntrustedAllocationCount(t *testing.T) {
 
 // Fuzz for crashes in ParseGitIndexFromMemory()
 func FuzzParseGitIndexFromMemory(f *testing.F) {
-	files, err := os.ReadDir("fuzz_indexes")
+	files, err := os.ReadDir("test-data" + string(os.PathSeparator) + "fuzz_indexes")
 	if err != nil {
-		f.Fatal("Failed to open fuzz_indexes:", err)
+		f.Fatal("Failed to open test-data" + string(os.PathSeparator) + "fuzz_indexes:", err)
 	}
 
 	for _, file := range files {
-		data, err := os.ReadFile("fuzz_indexes" + string(os.PathSeparator) + file.Name())
+		data, err := os.ReadFile("test-data" + string(os.PathSeparator) + "fuzz_indexes" + string(os.PathSeparator) + file.Name())
 		if err != nil {
 			f.Fatal("Failed to read file:", err)
 		}
@@ -836,30 +837,61 @@ func TestConvertCRLFToLF(t *testing.T) {
 func TestBenchmarkConvertCRLFToLF(t *testing.T) {
 	fmt.Println()
 
-	nTimes := 1000
-	printGray("[Benchmark] ConvertCRLFToLF called " + strconv.Itoa(nTimes) + " times on 100 kB: ")
-
-	bigCRLFData := make([]byte, 100000) // 100 kB
-	for i := 0; i < len(bigCRLFData); i++ {
-		if i % 2 == 0 {
-			bigCRLFData[i] = '\r'
-		} else {
-			bigCRLFData[i] = '\n'
-		}
+	entries, err := os.ReadDir(filepath.Join("test-data", "benchmark_crlf_conversion"))
+	if err != nil {
+		panic("Failed to read files in test-data" + string(os.PathSeparator) + "benchmark_crlf_conversion")
 	}
 
+	totalBytes := 0
+	fileData := make([][]byte, 0)
+	for _, entry := range entries {
+		path := filepath.Join("test-data", "benchmark_crlf_conversion", entry.Name())
+
+		file, err := os.Open(path)
+		if err != nil {
+			panic("Failed to open file: " + path)
+		}
+
+		stat, err := os.Lstat(path)
+		if err != nil {
+			panic("Failed to stat file: " + path)
+		}
+
+		totalBytes += int(stat.Size())
+
+		data, err := openFileData(file, stat)
+		fileData = append(fileData, data)
+	}
+
+	/* Average case, using files from test-data/benchmark_crlf_conversion */
+	nTimes := 1000
+	printGray("[Benchmark] ConvertCRLFToLF() " + strconv.Itoa(nTimes) + " times on " + strconv.Itoa(totalBytes / 1000) + " kB: ")
 	start := time.Now()
 	for i := 0; i < nTimes; i++ {
-		convertCRLFToLF(bigCRLFData)
+		for _, data := range fileData {
+			convertCRLFToLF(data)
+		}
+	}
+	fmt.Println(time.Since(start))
+
+	/* Worst-case for bytes.IndexByte() */
+	nTimesWorstCase := 1000
+	printGray("[Benchmark] ConvertCRLFToLF() " + strconv.Itoa(nTimesWorstCase) + " times on 100 kB, worst-case for bytes.IndexByte(): ")
+
+	data := bytes.Repeat([]byte{'\r'}, 100000) // 100 kB
+
+	start = time.Now()
+	for i := 0; i < nTimesWorstCase; i++ {
+		convertCRLFToLF(data)
 	}
 	fmt.Println(time.Since(start))
 }
 
 func TestBenchmarkParseGitIndex(t *testing.T) {
 	howManyTimes := 10
-	printGray("[Benchmark] Calling ParseGitIndex() on Linux .git/index " + strconv.Itoa(howManyTimes) + " times:")
+	printGray("[Benchmark] ParseGitIndex() on Linux .git/index " + strconv.Itoa(howManyTimes) + " times:")
 
-	indexPath := "benchmark_indexes/torvalds_linux"
+	indexPath := filepath.Join("test-data", "benchmark_indexes", "torvalds_linux")
 	expectedEntriesLength := 92192
 
 	start := time.Now()
