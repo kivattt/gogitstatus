@@ -248,19 +248,16 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 	return entries, nil
 }
 
-func hashMatches(path string, stat os.FileInfo, hash []byte) bool {
+func hashMatchesPath(path string, stat os.FileInfo, hash []byte) bool {
 	// Symlinks are hashed with the target path, not the data of the target file
 	// On Windows, symlinks are stored as regular files (with target path as the file data), so we handle them as such later
 	if runtime.GOOS != "windows" && stat.Mode()&os.ModeSymlink != 0 /*|| !stat.Mode().IsRegular()*/ {
-		newHash := sha1.New()
 		targetPath, err := os.Readlink(path)
 		if err != nil {
 			return false
 		}
 
-		newHash.Write(append([]byte("blob "+strconv.Itoa(len(targetPath))), 0))
-		newHash.Write([]byte(targetPath))
-		return reflect.DeepEqual(hash, newHash.Sum(nil))
+		return hashMatches([]byte(targetPath), hash)
 	}
 
 	file, err := os.Open(path)
@@ -269,30 +266,26 @@ func hashMatches(path string, stat os.FileInfo, hash []byte) bool {
 	}
 	defer file.Close()
 
-	newHash := sha1.New()
-	_, err = newHash.Write(append([]byte("blob "+strconv.FormatInt(stat.Size(), 10)), 0))
-	if err != nil {
-		return false
-	}
-
 	data, err := openFileData(file, stat)
 	if err != nil {
 		return false
 	}
 	defer closeFileData(data)
 
-	newHash.Write(data)
+	return hashMatches(data, hash)
+}
 
-	// Debugging
-	/*bool2Str := func(b bool) string {
-		if b {
-			return "\x1b[32m true\x1b[0m"
-		}
-		return "\x1b[31mfalse\x1b[0m"
+func hashMatches(data []byte, hash []byte) bool {
+	newHash := sha1.New()
+	_, err := newHash.Write(append([]byte("blob "+strconv.FormatInt(int64(len(data)), 10)), 0))
+	if err != nil {
+		return false
 	}
 
-	b := reflect.DeepEqual(hash, newHash.Sum(nil))
-	fmt.Println("hash: " + hex.EncodeToString(hash) + ", newHash: " + hex.EncodeToString(newHash.Sum(nil)) + ", matches? " + bool2Str(b) + ", " + path)*/
+	_, err = newHash.Write(data)
+	if err != nil {
+		return false
+	}
 
 	return reflect.DeepEqual(hash, newHash.Sum(nil))
 }
@@ -409,7 +402,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 	// TODO: Store mtime and ctime to check for change here, as is done in the match_stat_data() function in Git
 
 	// TODO: Do an early return if stat filesize differs, before we do a hash check.
-	if !hashMatches(entryFullPath, stat, entry.Hash[:]) {
+	if !hashMatchesPath(entryFullPath, stat, entry.Hash[:]) {
 		whatChanged |= DATA_CHANGED
 	}
 
