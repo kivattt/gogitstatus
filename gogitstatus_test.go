@@ -865,6 +865,9 @@ func TestBenchmarkConvertCRLFToLF(t *testing.T) {
 		totalBytes += int(stat.Size())
 
 		data, err := openFileData(file, stat)
+		if err != nil {
+			panic("Failed to read file: " + path)
+		}
 		fileData = append(fileData, data)
 	}
 
