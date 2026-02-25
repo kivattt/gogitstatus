@@ -29,7 +29,10 @@ Currently (25. feb 2026 03:34:10 in Norway), we don't handle this properly, and 
 
 ## The hacky solution
 
-If the hash doesn't match, try to hash it with line endings normalized. Try both LF and CRLF.
+If the hash doesn't match, try to hash it with line endings converted, turning CRLF into LF.\
+This is what we currently do. (25. february 2026 23:01:40 in Norway)
+
+I think there is no LF -> CRLF conversion. Only CRLF -> LF.
 
 ## The real solution
 

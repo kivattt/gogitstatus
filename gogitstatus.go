@@ -301,8 +301,9 @@ func hashMatchesFileOrWithLineEndingConvertedHack(hash []byte, path string, stat
 		return true
 	}
 
-	// HACK: If the hash doesn't match, we also attempt to hash with converted line endings LF/CRLF
+	// HACK: If the hash doesn't match, we also attempt to hash with converted line endings (CRLF -> LF)
 	// The proper way to go about this would be to figure out if/how to convert line endings via something like .gitattributes
+	// I think there is no LF -> CRLF conversion. Only CRLF -> LF.
 
 	file, err := os.Open(path)
 	if err != nil {
@@ -317,16 +318,7 @@ func hashMatchesFileOrWithLineEndingConvertedHack(hash []byte, path string, stat
 	defer closeFileData(data)
 
 	crlf := convertCRLFToLF(data)
-	if hashMatches(hash, crlf) {
-		return true
-	}
-
-	/*lf := convertLFToCRLF(data)
-	if hashMatches(lf, hash) {
-		return true
-	}*/
-
-	return false
+	return hashMatches(hash, crlf)
 }
 
 func hashMatchesFile(hash []byte, path string, stat os.FileInfo) bool {
