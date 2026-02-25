@@ -258,6 +258,52 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 	return entries, nil
 }
 
+/*func convertLFToCRLF(data []byte) []byte {
+	
+}*/
+
+func convertCRLFToLF(data []byte) []byte {
+	out := make([]byte, 0, len(data))
+
+	// FIXME: Use indexByte to skip to next \r to batch-add
+	for _, c := range data {
+		if c != '\r' {
+			out = append(out, c)
+		}
+	}
+
+	return out
+}
+
+// If the hash doesn't match, we also attempt to hash with converted line endings LF/CRLF
+func hashMatchesPathHack(path string, stat os.FileInfo, hash []byte) bool {
+	if hashMatchesPath(path, stat, hash) {
+		return true
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+
+	data, err := openFileData(file, stat)
+	if err != nil {
+		return false
+	}
+
+	crlf := convertCRLFToLF(data)
+	if hashMatches(crlf, hash) {
+		return true
+	}
+
+	/*lf := convertLFToCRLF(data)
+	if hashMatches(lf, hash) {
+		return true
+	}*/
+
+	return false
+}
+
 func hashMatchesPath(path string, stat os.FileInfo, hash []byte) bool {
 	// Symlinks are hashed with the target path, not the data of the target file
 	// On Windows, symlinks are stored as regular files (with target path as the file data), so we handle them as such later
@@ -413,7 +459,7 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	if entry.FileSize != uint32(stat.Size()) {
 		whatChanged |= DATA_CHANGED
-	} else if !hashMatchesPath(entryFullPath, stat, entry.Hash[:]) {
+	} else if !hashMatchesPathHack(entryFullPath, stat, entry.Hash[:]) {
 		whatChanged |= DATA_CHANGED
 	}
 

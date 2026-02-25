@@ -483,31 +483,8 @@ func TestParseGitIndex(t *testing.T) {
 	if testFailed {
 		t.Fatal("See above ^")
 	}
-}
 
-func TestBenchmarkParseGitIndex(t *testing.T) {
-	howManyTimes := 10
-	fmt.Print("[Benchmark] Calling ParseGitIndex() on Linux .git/index ", howManyTimes, " times:")
-
-	indexPath := "benchmark_indexes/torvalds_linux"
-	expectedEntriesLength := 92192
-
-	start := time.Now()
-
-	for i := 0; i < howManyTimes; i++ {
-		ctx := context.WithoutCancel(context.Background())
-		entries, err := ParseGitIndex(ctx, indexPath)
-		if err != nil {
-			t.Fatal("Got an error while benchmarking ParseGitIndex(): ", err)
-		}
-
-		if len(entries) != expectedEntriesLength {
-			t.Fatal("Expected ", expectedEntriesLength, " entries, but got: ", len(entries))
-		}
-	}
-
-	duration := time.Since(start)
-	fmt.Println(" " + duration.String())
+	fmt.Println()
 }
 
 func TestIncludingDirectories(t *testing.T) {
@@ -822,4 +799,83 @@ func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
 		failed = true
 		t.Fatal("Expected:", expected, "but got:", result)
 	}
+}
+
+func TestConvertCRLFToLF(t *testing.T) {
+	printGray("TestConvertCRLFToLF:")
+	failed := false
+	defer func() {
+		if failed {
+			printRed(" Failed\n")
+		} else {
+			printGreen(" Success\n")
+		}
+	}()
+
+	type TestCase struct {
+		input string
+		expected string
+	}
+
+	tests := []TestCase{
+		{"", ""},
+		{"\r", ""},
+		{"\r\n", "\n"},
+		{"line 1\r\nline 2\r\nline 3\r\n", "line 1\nline 2\nline 3\n"},
+	}
+
+	for _, test := range tests {
+		result := convertCRLFToLF([]byte(test.input))
+		if !reflect.DeepEqual(result, []byte(test.expected)) {
+			fmt.Println("Expected", []byte(test.expected), "but got:", result)
+			failed = true
+		}
+	}
+}
+
+func TestBenchmarkConvertCRLFToLF(t *testing.T) {
+	fmt.Println()
+
+	nTimes := 1000
+	printGray("[Benchmark] ConvertCRLFToLF called " + strconv.Itoa(nTimes) + " times on 100 kB: ")
+
+	bigCRLFData := make([]byte, 100000) // 100 kB
+	for i := 0; i < len(bigCRLFData); i++ {
+		if i % 2 == 0 {
+			bigCRLFData[i] = '\r'
+		} else {
+			bigCRLFData[i] = '\n'
+		}
+	}
+
+	start := time.Now()
+	for i := 0; i < nTimes; i++ {
+		convertCRLFToLF(bigCRLFData)
+	}
+	fmt.Println(time.Since(start))
+}
+
+func TestBenchmarkParseGitIndex(t *testing.T) {
+	howManyTimes := 10
+	printGray("[Benchmark] Calling ParseGitIndex() on Linux .git/index " + strconv.Itoa(howManyTimes) + " times:")
+
+	indexPath := "benchmark_indexes/torvalds_linux"
+	expectedEntriesLength := 92192
+
+	start := time.Now()
+
+	for i := 0; i < howManyTimes; i++ {
+		ctx := context.WithoutCancel(context.Background())
+		entries, err := ParseGitIndex(ctx, indexPath)
+		if err != nil {
+			t.Fatal("Got an error while benchmarking ParseGitIndex(): ", err)
+		}
+
+		if len(entries) != expectedEntriesLength {
+			t.Fatal("Expected ", expectedEntriesLength, " entries, but got: ", len(entries))
+		}
+	}
+
+	duration := time.Since(start)
+	fmt.Println(" " + duration.String())
 }
