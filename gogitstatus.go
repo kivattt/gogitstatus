@@ -308,6 +308,7 @@ func hashMatchesFileOrWithLineEndingConvertedHack(hash []byte, path string, stat
 	if err != nil {
 		return false
 	}
+	defer file.Close()
 
 	data, err := openFileData(file, stat)
 	if err != nil {
