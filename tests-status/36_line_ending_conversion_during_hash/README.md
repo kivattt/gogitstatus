@@ -4,7 +4,7 @@ If you configure the line endings of a file to be normalized in something like `
 <summary>Demonstration of the SHA-1 hash being different than usual (bash)</summary>
 
 ```
-$ mkdir tmp
+$ mkdir tmp
 $ unzip files.zip -d tmp/
 $ cd tmp/
 $ git hash-object crlf_file_with_lf_in_index.txt
