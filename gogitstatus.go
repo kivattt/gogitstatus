@@ -37,6 +37,7 @@ type GitIndexEntry struct {
 	ModifiedTimeSeconds            uint32
 	ModifiedTimeNanoSeconds        uint32
 	Mode                           uint32   // Contains the file type and unix permission bits
+	FileSize                       uint32   // Size of the file in bytes
 	Hash                           [20]byte // 20 bytes for the standard SHA-1
 }
 
@@ -148,6 +149,7 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 
 	flagsBytes := make([]byte, 2)         // 16 bits 'flags' field
 	modeBytes := make([]byte, 4)          // 32 bits
+	fileSizeBytes := make([]byte, 4)      // 32 bits
 	eightBytes := make([]byte, 8)         // 64 bits
 	hashBytes := make([]byte, 20)         // 160 bits
 	pathNameBuffer := make([]byte, 0xffe) // We allocate enough for the largest possible known-size (not null-terminated) Git path name length.
@@ -186,10 +188,17 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 
 			mode := binary.BigEndian.Uint32(modeBytes)
 
-			// Seek to "object name" (hash data)
-			if _, err := reader.Seek(12, 1); err != nil { // 96 bits
-				return nil, errors.New("invalid size, unable to seek to object name within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			// Seek to 32-bit file size
+			if _, err := reader.Seek(8, 1); err != nil { // 64 bits
+				return nil, errors.New("invalid size, unable to seek to 32-bit file size within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
 			}
+
+			// Read 32-bit file size
+			if _, err := io.ReadFull(reader, fileSizeBytes); err != nil {
+				return nil, errors.New("invalid size, unable to read 32-bit mode within entry at index " + strconv.FormatInt(int64(entryIndex), 10))
+			}
+
+			fileSize := binary.BigEndian.Uint32(fileSizeBytes)
 
 			// Read hash data
 			if _, err := io.ReadFull(reader, hashBytes); err != nil {
@@ -240,6 +249,7 @@ func ParseGitIndexFromMemory(ctx context.Context, data []byte, maxEntriesToPreAl
 				ModifiedTimeSeconds:            mTimeSeconds,
 				ModifiedTimeNanoSeconds:        mTimeNanoSeconds,
 				Mode:                           mode,
+				FileSize:                       fileSize,
 				Hash:                           [20]byte(hashBytes),
 			}
 		}
@@ -401,8 +411,9 @@ func fileChanged(entry GitIndexEntry, entryFullPath string, stat os.FileInfo) Wh
 
 	// TODO: Store mtime and ctime to check for change here, as is done in the match_stat_data() function in Git
 
-	// TODO: Do an early return if stat filesize differs, before we do a hash check.
-	if !hashMatchesPath(entryFullPath, stat, entry.Hash[:]) {
+	if entry.FileSize != uint32(stat.Size()) {
+		whatChanged |= DATA_CHANGED
+	} else if !hashMatchesPath(entryFullPath, stat, entry.Hash[:]) {
 		whatChanged |= DATA_CHANGED
 	}
 
