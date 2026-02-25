@@ -29,8 +29,7 @@ Currently (25. feb 2026 03:34:10 in Norway), we don't handle this properly, and 
 
 ## The hacky solution
 
-If the hash doesn't match, try to hash it with line endings normalized.\
-Try both LF and CRLF. Starting with whichever is the most common, like the default option in git for windows. Are there more line endings than LF and CRLF?
+If the hash doesn't match, try to hash it with line endings normalized. Try both LF and CRLF.
 
 ## The real solution
 
