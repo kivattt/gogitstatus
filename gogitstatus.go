@@ -37,7 +37,7 @@ type GitIndexEntry struct {
 	ModifiedTimeSeconds            uint32
 	ModifiedTimeNanoSeconds        uint32
 	Mode                           uint32   // Contains the file type and unix permission bits
-	FileSize                       uint32   // Size of the file in bytes
+	FileSize                       uint32   // Size of the file in bytes from stat(2), truncated to 32-bit
 	Hash                           [20]byte // 20 bytes for the standard SHA-1
 }
 
