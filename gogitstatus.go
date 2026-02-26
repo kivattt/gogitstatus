@@ -509,7 +509,7 @@ func ignoreMatch(path string, ignoresMap map[string]*ignore.GitIgnore) bool {
 		}
 
 		if rel == "" {
-			return true
+			panic("unreachable")
 		}
 
 		ignore, ok := ignoresMap[dir]
