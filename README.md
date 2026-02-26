@@ -18,7 +18,7 @@ To try out `gogitstatus.ParseIndex()`, run the showindex program:
 ```console
 cd showindex
 go build
-./showindex index
+./showindex ../.git/index
 ```
 
 ## Running tests
