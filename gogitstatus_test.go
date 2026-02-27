@@ -777,6 +777,8 @@ func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
 	ignoresCache := map[string]*ignore.GitIgnore{".": ignoreObj}
 	indexEntries := make(map[string]GitIndexEntry) // Empty
 
+	ctx := context.WithoutCancel(context.Background())
+
 	// Doesn't spawn any goroutines, just runs them sequentially
 	runNumGoroutines := func(paths []string, num int) map[string]ChangedFile {
 		results := make([]map[string]ChangedFile, num)
@@ -784,7 +786,7 @@ func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
 		slices := SpreadArrayIntoSlicesForGoroutines(len(paths), num)
 		for threadIdx, slice := range slices {
 			ourSlice := paths[slice.start : slice.start+slice.length]
-			results[threadIdx] = untrackedPathsNotIgnoredWorker(ourSlice, ignoresCache, indexEntries, true)
+			results[threadIdx] = untrackedPathsNotIgnoredWorker(ctx, ourSlice, ignoresCache, indexEntries, true)
 		}
 
 		// Merge the results
