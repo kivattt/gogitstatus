@@ -104,7 +104,11 @@ func main() {
 
 	if err != nil {
 		fmt.Println("error:", err)
-		os.Exit(1)
+		if strings.HasSuffix(err.Error(), "context canceled") {
+			os.Exit(2)
+		} else {
+			os.Exit(1)
+		}
 	}
 
 	unstaged := make(map[string]gogitstatus.ChangedFile)
