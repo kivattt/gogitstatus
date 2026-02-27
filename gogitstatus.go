@@ -607,7 +607,7 @@ func skipDir(paths []string, index int) (int, error) {
 		return errorIndex, errors.New("skipping the whole root")
 	}
 
-	// filepath.Dir() strips any forward-slashes but we need it for the prefix-check.
+	// filepath.Dir() trims forward-slashes but we need it for the prefix-check.
 	dirToSkip += "/"
 
 	for i := index + 1; i < len(paths); i++ {
