@@ -1,7 +1,8 @@
 if [ -z $1 ]; then
 	echo "Usage: $0 [path to git repo]"
 	echo
-	echo "Meant to be used on a big repo like chromium"
+	echo "Meant to be used on a big repo like chromium."
+	echo "Outputs in CSV format"
 	exit
 fi
 
