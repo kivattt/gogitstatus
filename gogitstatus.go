@@ -607,7 +607,7 @@ func skipDir(paths []string, index int) (int, error) {
 		return errorIndex, errors.New("skipping the whole root")
 	}
 
-	// myDir() strips any forward-slashes but we need it for the prefix-check.
+	// filepath.Dir() strips any forward-slashes but we need it for the prefix-check.
 	dirToSkip += "/"
 
 	for i := index + 1; i < len(paths); i++ {
@@ -691,7 +691,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 			ignore, err := ignore.CompileIgnoreFile(gitIgnorePath)
 			if err == nil {
 				// The root folder key ends up being "." in the ignoresCache
-				// because myDir("") == "."
+				// because filepath.Dir("") == "."
 				pathLookup := filepath.Dir(gitIgnorePath[len(path)+1:])
 				ignoresCache[pathLookup] = ignore
 			}
