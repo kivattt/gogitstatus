@@ -86,9 +86,11 @@ func main() {
 	}()
 
 	if timeoutMillis != -1 {
-		time.Sleep(time.Duration(timeoutMillis) * time.Millisecond)
-		fmt.Println("Cancelling!")
-		cancelFunc()
+		go func() {
+			time.Sleep(time.Duration(timeoutMillis) * time.Millisecond)
+			fmt.Println("Cancelling!")
+			cancelFunc()
+		}()
 	}
 
 	wg.Wait()
