@@ -40,6 +40,9 @@ cd showstatus
 go build
 ./graph_timeout_delays.sh /path/to/large/repository 2> output.csv
 ```
+
+### Example of a cancellation bug
+![Example of a latency issue because we forgot to handle cancellation in a loop. Rendered with Liberoffice](img/bad_context_cancel.png)
 </details>
 
 ## Git Index file format resources
