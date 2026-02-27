@@ -28,6 +28,15 @@ Run `go test -fuzz=FuzzParseGitIndexFromMemory` to fuzz for crashes in the `Pars
 
 If you are developing on Linux, you can run the `./run_windows_test.sh` script to test on "Windows" with [wine](https://www.winehq.org/)
 
+`StatusWithContext()` is a cancellable function. To check if we forgot a `select` block to handle cancelling somewhere, you can run this tool to graph the timeout and the actual time spent.\
+Ideally, both the timeout and time spent should be linear and close to eachother.
+This command generates a .csv file you can load into Excel or Libreoffice and graph the data.
+```
+cd showstatus
+go build
+./graph_timeout_delays.sh /path/to/large/repository 2> output.csv
+```
+
 ## Git Index file format resources
 https://git-scm.com/docs/index-format (missing some visual separation...)\
 https://github.com/git/git/blob/master/read-cache.c
