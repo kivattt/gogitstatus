@@ -17,12 +17,15 @@ output_timeout_and_real_time_spent()
 {
 	timeout=$1
 	repository_path=$2
-	/usr/bin/time --quiet -f "%e,$timeout" ./showstatus --timeout=$timeout "$repository_path" > /dev/null
+	timeout_seconds="0$(echo "scale=scale(1.111); $timeout/1000" | bc)"
+
+	/usr/bin/time --quiet -f "$timeout_seconds,%e" ./showstatus --timeout=$timeout "$repository_path" > /dev/null
 }
 
 repository_path=$1
 
-echo "Real time spent (s),Timeout (ms)" 1>&2
+#echo "Real time spent (seconds),Timeout (seconds)" 1>&2
+echo "Timeout (seconds),Real time spent (seconds)" 1>&2
 
 # 0 up to 10000ms in intervals of 16ms.
 # Automatically stops when the timeout exceeds the runtime
