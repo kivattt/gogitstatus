@@ -31,8 +31,10 @@ If you are developing on Linux, you can run the `./run_windows_test.sh` script t
 <details>
 <summary>Check for context cancellation latency issues</summary>
 
-`StatusWithContext()` is a cancellable function.\
-To check if we forgot a `select` block to handle cancelling somewhere, you can run this tool to graph the timeout and the actual time spent.\
+`StatusWithContext()` is a cancellable function.
+
+To check if we forgot a `select` block to handle cancelling somewhere, you can run this tool to graph the timeout and the actual time spent.
+
 Ideally, both the timeout and time spent should be linear and close to eachother.
 This tool generates a .csv file you can load into Excel or Libreoffice to graph the data.
 ```
