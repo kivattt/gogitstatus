@@ -2,7 +2,7 @@ if [ -z $1 ]; then
 	echo "Usage: $0 [path to git repo]"
 	echo
 	echo "Meant to be used on a big repo like chromium."
-	echo "Outputs in CSV format"
+	echo "Outputs CSV format to stderr"
 	exit
 fi
 
@@ -22,7 +22,7 @@ output_timeout_and_real_time_spent()
 
 repository_path=$1
 
-echo "Real time spent (s),Timeout (ms)"
+echo "Real time spent (s),Timeout (ms)" 1>&2
 
 # 0 up to 10000ms in intervals of 16ms.
 # Automatically stops when the timeout exceeds the runtime
