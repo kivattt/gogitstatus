@@ -1,15 +1,29 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"runtime"
 	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/kivattt/gogitstatus"
 	"golang.org/x/term"
 	//	"github.com/pkg/profile"
 )
+
+func usage(programName string) {
+	fmt.Println("Usage: " + programName + " [OPTIONS] <optional path>")
+	fmt.Println()
+	fmt.Println("OPTIONS:")
+	fmt.Println("\t-h, --help")
+	fmt.Println("\t--verbose")
+	fmt.Println("\t--timeout=milliseconds")
+}
 
 func main() {
 	//defer profile.Start(profile.CPUProfile).Stop()
@@ -26,19 +40,58 @@ func main() {
 	args := os.Args
 
 	path, _ := os.Getwd()
+	help := false
 	verbose := false
+	timeoutMillis := -1
 
 	// I hate the flag package, this is better
 	for i := 1; i < len(args); i++ {
-		if args[i] == "--verbose" {
+		if args[i] == "-h" || args[i] == "--help" {
+			help = true
+		} else if args[i] == "--verbose" {
 			verbose = true
+		} else if strings.HasPrefix(args[i], "--timeout=") {
+			milliseconds, err := strconv.Atoi(args[i][len("--timeout="):])
+			if err != nil {
+				usage(args[0])
+				os.Exit(1)
+			}
+
+			if milliseconds < 0 {
+				fmt.Println("timeout can not be negative")
+				os.Exit(1)
+			}
+
+			timeoutMillis = milliseconds
 		} else {
 			// Last arg that isn't "--verbose" is the path
 			path = args[i]
 		}
 	}
 
-	paths, err := gogitstatus.Status(path)
+	if help {
+		usage(args[0])
+		os.Exit(0)
+	}
+
+	var paths map[string]gogitstatus.ChangedFile
+	var err error
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	go func() {
+		paths, err = gogitstatus.StatusWithContext(ctx, path)
+		wg.Done()
+	}()
+
+	if timeoutMillis != -1 {
+		time.Sleep(time.Duration(timeoutMillis) * time.Millisecond)
+		fmt.Println("Cancelling!")
+		cancelFunc()
+	}
+
+	wg.Wait()
 
 	// Removes deleted paths
 	//paths = gogitstatus.ExcludingDeleted(paths)
