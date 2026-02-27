@@ -34,7 +34,7 @@ If you are developing on Linux, you can run the `./run_windows_test.sh` script t
 `StatusWithContext()` is a cancellable function.\
 To check if we forgot a `select` block to handle cancelling somewhere, you can run this tool to graph the timeout and the actual time spent.\
 Ideally, both the timeout and time spent should be linear and close to eachother.
-This command generates a .csv file you can load into Excel or Libreoffice and graph the data.
+This command generates a .csv file you can load into Excel or Libreoffice to graph the data.
 ```
 cd showstatus
 go build
