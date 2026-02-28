@@ -4,9 +4,7 @@
 - We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead
 - in goignore: make fast path when pattern has no wildcards?
-- Add cancellation select{} block in untrackedPathsNotIgnored
 - Make test output better (horizontal 1, 2, 3... instead of taking up so many lines, or omitting successful tests)
-- Make a visualization tool for cancellation latencies at different intervals (probably just write a .csv we can graph using a tool)
 
 
 - (BAD) doing twice the work by checking if parent folders are ignored
