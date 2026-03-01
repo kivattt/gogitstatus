@@ -40,14 +40,14 @@ import (
 
 // All the code was ripped from the Go standard library code, version go1.25.6
 
-type DirEntry = fs.DirEntry
+type dirEntry = fs.DirEntry
 
 // ReadDir reads the named directory,
 // returning all its directory entries.
 // If an error occurs reading the directory,
 // ReadDir returns the entries it was able to read before the error,
 // along with the error.
-func myReadDir(name string) ([]DirEntry, error) {
+func myReadDir(name string) ([]dirEntry, error) {
 	f, err := os.Open(name)
 	if err != nil {
 		return nil, err
