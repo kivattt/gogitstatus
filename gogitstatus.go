@@ -367,11 +367,11 @@ type WhatChanged uint8
 
 const (
 	// https://github.com/git/git/blob/ef8ce8f3d4344fd3af049c17eeba5cd20d98b69f/statinfo.h#L35
-	MTIME_CHANGED WhatChanged = 0x0001 // We don't use this
+	MTIME_CHANGED WhatChanged = 0x0001 // We don't use this (yet)
 	CTIME_CHANGED WhatChanged = 0x0002
 	OWNER_CHANGED WhatChanged = 0x0004
 	MODE_CHANGED  WhatChanged = 0x0008
-	INODE_CHANGED WhatChanged = 0x0010 // Use or not?
+	INODE_CHANGED WhatChanged = 0x0010 // We don't use this (yet)
 	DATA_CHANGED  WhatChanged = 0x0020
 	TYPE_CHANGED  WhatChanged = 0x0040
 
