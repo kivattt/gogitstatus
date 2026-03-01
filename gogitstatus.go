@@ -702,7 +702,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 	}
 
 	start = time.Now()
-	slices := SpreadArrayIntoSlicesForGoroutines(len(paths), numCPUs)
+	slices := spreadArrayIntoSlicesForGoroutines(len(paths), numCPUs)
 	results := make([]map[string]ChangedFile, numCPUs)
 
 	var wg sync.WaitGroup
@@ -711,7 +711,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 		if gogitstatus_debug_goroutine_slices {
 			fmt.Println("GOROUTINE NUMBER", threadIdx, "slice:", paths[slice.start:slice.start+slice.length])
 		}
-		go func(threadIdx int, slice Slice) {
+		go func(threadIdx int, slice sliceType) {
 			ourSlice := paths[slice.start : slice.start+slice.length]
 			results[threadIdx] = untrackedPathsNotIgnoredWorker(ctx, ourSlice, ignoresCache, indexEntries, respectGitIgnore)
 			wg.Done()
@@ -823,20 +823,20 @@ func StatusWithContext(ctx context.Context, path string, numCPUsOptional ...int)
 	return StatusRaw(ctx, path, myJoin(dotGitPath, "index"), true, numCPUsOptional...)
 }
 
-type Slice struct {
+type sliceType struct {
 	start  int
 	length int
 }
 
 // This function and Slice struct were copied from util.go in my fen file manager
 // See: https://github.com/kivattt/fen/blob/main/util.go#L1286
-func SpreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []Slice {
+func spreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []sliceType {
 	if arrayLength == 0 {
-		return []Slice{}
+		return []sliceType{}
 	}
 
 	if numGoroutines <= 1 {
-		return []Slice{
+		return []sliceType{
 			{0, arrayLength},
 		}
 	}
@@ -844,19 +844,19 @@ func SpreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []Slice 
 	// More goroutines than there are elements, use arrayLength goroutines instead.
 	// That is, 1 goroutine per element...
 	if numGoroutines >= arrayLength {
-		var result []Slice
+		var result []sliceType
 		for i := 0; i < arrayLength; i++ {
-			result = append(result, Slice{i, 1})
+			result = append(result, sliceType{i, 1})
 		}
 		return result
 	}
 
-	var result []Slice
+	var result []sliceType
 	lengthPerGoroutine := arrayLength / numGoroutines
 
 	rollingIndex := 0
 	for i := 0; i < numGoroutines-1; i++ {
-		result = append(result, Slice{
+		result = append(result, sliceType{
 			start:  rollingIndex,
 			length: lengthPerGoroutine,
 		})
@@ -865,7 +865,7 @@ func SpreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []Slice 
 	}
 
 	// Last goroutine will handle the last part of the array
-	result = append(result, Slice{
+	result = append(result, sliceType{
 		start:  rollingIndex,
 		length: arrayLength - rollingIndex,
 	})
@@ -873,7 +873,7 @@ func SpreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []Slice 
 	return result
 }
 
-func TrackedPathsChanged(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, numCPUs int) (map[string]ChangedFile, error) {
+func trackedPathsChanged(ctx context.Context, path string, indexEntries map[string]GitIndexEntry, numCPUs int) (map[string]ChangedFile, error) {
 	outs := make([]map[string]ChangedFile, numCPUs)
 	for i := range outs {
 		outs[i] = make(map[string]ChangedFile)
@@ -893,13 +893,13 @@ func TrackedPathsChanged(ctx context.Context, path string, indexEntries map[stri
 		})
 	}
 
-	splits := SpreadArrayIntoSlicesForGoroutines(len(indexEntriesSlice), numCPUs)
+	splits := spreadArrayIntoSlicesForGoroutines(len(indexEntriesSlice), numCPUs)
 
 	var wg sync.WaitGroup
 	wg.Add(len(splits))
 
 	for threadIdx, split := range splits {
-		go func(threadIdx int, split Slice) {
+		go func(threadIdx int, split sliceType) {
 			defer wg.Done()
 
 			for i := split.start; i < split.start+split.length; i++ {
@@ -1006,7 +1006,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	}()
 
 	start = time.Now()
-	out, err := TrackedPathsChanged(ctx, path, indexEntries, numCPUs)
+	out, err := trackedPathsChanged(ctx, path, indexEntries, numCPUs)
 	if gogitstatus_debug_profiling {
 		fmt.Println("Tracked time:", time.Since(start))
 	}
