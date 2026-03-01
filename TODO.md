@@ -17,3 +17,12 @@
 if negation pattern:
 	if any parent folder ignored in known list/map lookup
 		skip line
+
+
+
+## TODO
+- Deal with .git files that point the real .git folder elsewhere (submodules or something)
+- Support exclude file priority (like core.excludesFile in config and other XDG\_CONFIG stuff)
+- Support SHA-256
+- Support other Git Index versions besides 2
+- Deal with .gitattributes (and XDG\_CONFIG stuff) to determine whether we need to hash with line endings normalized. See: `tests-status/36_line_ending_conversion_during_hash/README.md`
