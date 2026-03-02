@@ -1,4 +1,4 @@
-- Implement .git regular file pointing with "gitdir: ...". Folders on my laptop with this issue: `projects/PYNQ` `projects/clap-tutorials/libs/clap` `projects/learning_odin/14_shared_object/cmake-sfml-project`
+- Implement Git submodules .gitmodules / .git regular file pointing with "gitdir: ...". Folders on my laptop with this issue: `projects/PYNQ` `projects/clap-tutorials/libs/clap` `projects/learning_odin/14_shared_object/cmake-sfml-project`
 
 - We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead
