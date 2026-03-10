@@ -140,6 +140,8 @@ func main() {
 			whatChangedStr = "deleted:   "
 		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 || elem.WhatChanged&gogitstatus.MODE_CHANGED != 0 {
 			whatChangedStr = "modified:  "
+		} else if elem.WhatChanged&gogitstatus.TYPE_CHANGED != 0 {
+			whatChangedStr = "typechange:"
 		}
 
 		if verbose {
@@ -174,6 +176,8 @@ func main() {
 			whatChangedStr = "deleted:   "
 		} else if elem.WhatChanged&gogitstatus.DATA_CHANGED != 0 || elem.WhatChanged&gogitstatus.MODE_CHANGED != 0 {
 			whatChangedStr = "modified:  "
+		} else if elem.WhatChanged&gogitstatus.TYPE_CHANGED != 0 {
+			whatChangedStr = "typechange:"
 		}
 
 		whatChangedStr = gogitstatus.WhatChangedToString(elem.WhatChanged)
