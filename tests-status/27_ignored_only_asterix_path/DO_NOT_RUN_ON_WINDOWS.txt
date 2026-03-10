@@ -1,0 +1,1 @@
+On Windows, filenames can't contain an asterix `*`. Unzipping the file would crash the program.
