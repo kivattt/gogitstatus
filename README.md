@@ -29,7 +29,7 @@ go build
 - Line ending conversion before hashing isn't handled properly. We hacked it to try both with and without conversion. This may increase risk of hash collisions (wrong output from this library).
 
 ## Performance?
-This library is slower than `git status`, and uses much more CPU-time across all your CPU cores (much worse power usage).
+This library is slower than `git status`, and uses much more CPU-time across all your CPU cores (much more power usage).
 
 These examples were run on a [HP ZBook Firefly G8](https://support.hp.com/us-en/product/details/hp-zbook-firefly-15.6-inch-g8-mobile-workstation-pc/2100188570) laptop running `Linux Mint 22.1 x86_64`.
 
