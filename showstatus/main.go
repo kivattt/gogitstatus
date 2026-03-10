@@ -13,7 +13,7 @@ import (
 
 	"github.com/kivattt/gogitstatus"
 	"golang.org/x/term"
-	//	"github.com/pkg/profile"
+	//"github.com/pkg/profile"
 )
 
 func usage(programName string) {

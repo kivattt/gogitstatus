@@ -776,6 +776,7 @@ func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
 	ignoreObj := ignore.CompileIgnoreLines("ignored_folder/")
 	ignoresCache := map[string]*ignore.GitIgnore{".": ignoreObj}
 	indexEntries := make(map[string]GitIndexEntry) // Empty
+	gitLinkPaths := make([]string, 0)              // Empty
 
 	ctx := context.WithoutCancel(context.Background())
 
@@ -786,7 +787,7 @@ func TestUntrackedPathsNotIgnoredWorker(t *testing.T) {
 		slices := spreadArrayIntoSlicesForGoroutines(len(paths), num)
 		for threadIdx, slice := range slices {
 			ourSlice := paths[slice.start : slice.start+slice.length]
-			results[threadIdx] = untrackedPathsNotIgnoredWorker(ctx, ourSlice, ignoresCache, indexEntries, true)
+			results[threadIdx] = untrackedPathsNotIgnoredWorker(ctx, ourSlice, ignoresCache, indexEntries, gitLinkPaths, true)
 		}
 
 		// Merge the results

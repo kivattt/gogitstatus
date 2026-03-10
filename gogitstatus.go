@@ -619,7 +619,7 @@ func skipDir(paths []string, index int) (int, error) {
 	return errorIndex, errors.New("reached the end of paths")
 }
 
-func untrackedPathsNotIgnoredWorker(ctx context.Context, paths []string, ignoresCache map[string]*ignore.GitIgnore, indexEntries map[string]GitIndexEntry, respectGitIgnore bool) map[string]ChangedFile {
+func untrackedPathsNotIgnoredWorker(ctx context.Context, paths []string, ignoresCache map[string]*ignore.GitIgnore, indexEntries map[string]GitIndexEntry, gitLinkPaths []string, respectGitIgnore bool) map[string]ChangedFile {
 	out := make(map[string]ChangedFile)
 
 	// We can not use `for i := range paths` here, because then we wouldn't be able to reassign the index variable i.
@@ -631,6 +631,16 @@ loop:
 		default:
 			// Path relative to the repository folder e.g. "src/file.cpp"
 			rel := paths[i]
+
+			// Skip submodules (gitlinks)
+			for _, path := range gitLinkPaths {
+				if strings.HasPrefix(rel, path) {
+					if gogitstatus_debug_ignored {
+						fmt.Println("IGNORED (because submodule/gitlink):", rel)
+					}
+					continue loop
+				}
+			}
 
 			// If it's in the .git/index, it's tracked
 			_, tracked := indexEntries[filepath.ToSlash(rel)]
@@ -701,6 +711,14 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 		fmt.Println("Compiling gitignore time:", time.Since(start))
 	}
 
+	// Submodule / gitlink paths. They all end with "/" to signify being a folder
+	gitLinkPaths := make([]string, 0)
+	for path, entry := range indexEntries {
+		if (entry.Mode & OBJECT_TYPE_MASK) == GITLINK {
+			gitLinkPaths = append(gitLinkPaths, path+"/")
+		}
+	}
+
 	start = time.Now()
 	slices := spreadArrayIntoSlicesForGoroutines(len(paths), numCPUs)
 	results := make([]map[string]ChangedFile, numCPUs)
@@ -713,7 +731,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 		}
 		go func(threadIdx int, slice sliceType) {
 			ourSlice := paths[slice.start : slice.start+slice.length]
-			results[threadIdx] = untrackedPathsNotIgnoredWorker(ctx, ourSlice, ignoresCache, indexEntries, respectGitIgnore)
+			results[threadIdx] = untrackedPathsNotIgnoredWorker(ctx, ourSlice, ignoresCache, indexEntries, gitLinkPaths, respectGitIgnore)
 			wg.Done()
 		}(threadIdx, slice)
 	}

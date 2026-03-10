@@ -1,4 +1,7 @@
 - Implement Git submodules .gitmodules / .git regular file pointing with "gitdir: ...". Folders on my laptop with this issue: `projects/PYNQ` `projects/clap-tutorials/libs/clap` `projects/learning_odin/14_shared_object/cmake-sfml-project`
+`14_shared_object/cmake-sfml-project` is weird, it has no .git file but still theres a problem.
+
+- Add a test for skipping gitlinks where it wants to skip "folder" but shouldn't skip a file called "folder"
 
 - We already fixed skipping "/" in goignore, but "/////////" should also be skipped, make sure that happens.
 - use mywalkdir / myreaddir in fen aswell to remove the unnecessary sorting overhead
