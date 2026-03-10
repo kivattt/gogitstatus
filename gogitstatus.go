@@ -632,6 +632,12 @@ loop:
 			// Path relative to the repository folder e.g. "src/file.cpp"
 			rel := paths[i]
 
+			// If it's in the .git/index, it's tracked
+			_, tracked := indexEntries[filepath.ToSlash(rel)]
+			if tracked {
+				continue
+			}
+
 			// Skip submodules (gitlinks)
 			for _, path := range gitLinkPaths {
 				if strings.HasPrefix(rel, path) {
@@ -642,42 +648,38 @@ loop:
 				}
 			}
 
-			// If it's in the .git/index, it's tracked
-			_, tracked := indexEntries[filepath.ToSlash(rel)]
-			if !tracked {
-				isDir := rel[len(rel)-1] == '/' // We added this '/' manually in getPathsRecursivelyRelativeTo(), so no cross-platform worries.
+			isDir := rel[len(rel)-1] == '/' // We added this '/' manually in getPathsRecursivelyRelativeTo(), so no cross-platform worries.
 
-				// Don't add ignored files
-				if respectGitIgnore && ignoreMatch(rel, ignoresCache) {
-					if gogitstatus_debug_ignored {
-						fmt.Println("IGNORED:", rel)
-					}
-
-					// Skip ignored directories.
-					// This is not strictly necessary since we always check
-					// if any parent folders are ignored, but it avoids unnecessary work
-					if isDir && !gogitstatus_debug_disable_skipdir {
-						var err error
-						if gogitstatus_debug_skipdir {
-							fmt.Println("SKIPPING FROM:", paths[i])
-						}
-						i, err = skipDir(paths, i) // PERF: Could pass rel to avoid reading it again in the body of the function
-
-						i -= 1 // Since the next iteration will increment i, make sure it's going to be the correct value.
-
-						if err != nil {
-							if gogitstatus_debug_skipdir {
-								fmt.Println("SKIPPED TO: END")
-							}
-							break loop
-						}
-						if gogitstatus_debug_skipdir {
-							fmt.Println("SKIPPED TO: ", paths[i+1])
-						}
-					}
-				} else if !isDir { // Don't add directories
-					out[rel] = ChangedFile{Untracked: true}
+			// Don't add ignored files
+			if respectGitIgnore && ignoreMatch(rel, ignoresCache) {
+				if gogitstatus_debug_ignored {
+					fmt.Println("IGNORED:", rel)
 				}
+
+				// Skip ignored directories.
+				// This is not strictly necessary since we always check
+				// if any parent folders are ignored, but it avoids unnecessary work
+				if isDir && !gogitstatus_debug_disable_skipdir {
+					var err error
+					if gogitstatus_debug_skipdir {
+						fmt.Println("SKIPPING FROM:", paths[i])
+					}
+					i, err = skipDir(paths, i) // PERF: Could pass rel to avoid reading it again in the body of the function
+
+					i -= 1 // Since the next iteration will increment i, make sure it's going to be the correct value.
+
+					if err != nil {
+						if gogitstatus_debug_skipdir {
+							fmt.Println("SKIPPED TO: END")
+						}
+						break loop
+					}
+					if gogitstatus_debug_skipdir {
+						fmt.Println("SKIPPED TO: ", paths[i+1])
+					}
+				}
+			} else if !isDir { // Don't add directories
+				out[rel] = ChangedFile{Untracked: true}
 			}
 		}
 	}
