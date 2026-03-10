@@ -7,9 +7,14 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/kivattt/gogitstatus"
 )
+
+func threeLeadingZeroes(s string) string {
+	return strings.Repeat("0", 3-len(s)) + s
+}
 
 func main() {
 	args := os.Args
@@ -29,6 +34,6 @@ func main() {
 	}
 
 	for path, e := range entries {
-		fmt.Println(strconv.FormatInt(int64(e.Mode&gogitstatus.OBJECT_TYPE_MASK>>13), 2)+strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8), hex.EncodeToString(e.Hash[:]), path)
+		fmt.Println(strconv.FormatInt(int64(e.Mode&gogitstatus.OBJECT_TYPE_MASK>>12), 8)+"0"+threeLeadingZeroes(strconv.FormatInt(int64(e.Mode&uint32(fs.ModePerm)), 8)), hex.EncodeToString(e.Hash[:]), path)
 	}
 }
