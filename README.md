@@ -91,8 +91,6 @@ sys     0m0,004s
 Overall, it's like 1.4x slower on my computer.
 </details>
 
-On `git clone --depth=1 https://github.com/chromium/chromium` 
-
 ## Running tests
 Run `go test -race` to run all the tests.
 
