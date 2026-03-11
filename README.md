@@ -7,6 +7,33 @@ gogitstatus is a library for finding unstaged/untracked files in local Git repos
 Tested for Linux, FreeBSD and Windows\
 This library is used in my terminal file manager [fen](https://github.com/kivattt/fen)
 
+## Usage
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+
+    "github.com/kivattt/gogitstatus"
+)
+
+func main() {
+    files, err := gogitstatus.Status(".")
+    if err != nil {
+        println("Failed to run Status():", err.Error())
+        os.Exit(0)
+    }
+
+    for path, info := range files {
+        fmt.Println(path, info)
+    }
+}
+```
+
+For a more detailed example, look at [showstatus/main.go](showstatus/main.go)
+
 To try out `gogitstatus.Status()`, run the showstatus program:
 ```console
 cd showstatus
