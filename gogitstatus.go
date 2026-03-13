@@ -715,6 +715,9 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 
 	start = time.Now()
 	// Submodule / gitlink paths. They all end in a path separator to signify being a folder
+	// PERF: This could be moved to happen right after ParseGitIndex() and then pass gitLinksPath to this function
+	// That way we save the ~8 milliseconds this takes (on chromium repo)
+	// by putting it where we're already waiting on a serial dependency to finish (walking the filesystem).
 	gitLinkPaths := make([]string, 0)
 	for path, entry := range indexEntries {
 		if (entry.Mode & OBJECT_TYPE_MASK) == GITLINK {
