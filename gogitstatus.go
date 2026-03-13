@@ -710,15 +710,19 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 		}
 	}
 	if gogitstatus_debug_profiling {
-		fmt.Println("Compiling gitignore time:", time.Since(start))
+		fmt.Println("Compiling gitignore:", time.Since(start))
 	}
 
-	// Submodule / gitlink paths. They all end with "/" to signify being a folder
+	start = time.Now()
+	// Submodule / gitlink paths. They all end in a path separator to signify being a folder
 	gitLinkPaths := make([]string, 0)
 	for path, entry := range indexEntries {
 		if (entry.Mode & OBJECT_TYPE_MASK) == GITLINK {
-			gitLinkPaths = append(gitLinkPaths, path+"/")
+			gitLinkPaths = append(gitLinkPaths, path+string(os.PathSeparator))
 		}
+	}
+	if gogitstatus_debug_profiling {
+		fmt.Println("Creating list of gitlinks:", time.Since(start))
 	}
 
 	start = time.Now()
@@ -740,7 +744,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 	wg.Wait()
 
 	if gogitstatus_debug_profiling {
-		fmt.Println("Ignore worker time:", time.Since(start))
+		fmt.Println("Ignore worker:", time.Since(start))
 	}
 
 	select {
@@ -755,7 +759,7 @@ func untrackedPathsNotIgnored(ctx context.Context, paths []string, gitIgnorePath
 			}
 		}
 		if gogitstatus_debug_profiling {
-			fmt.Println("Merge results time:", time.Since(start))
+			fmt.Println("Merge results:", time.Since(start))
 		}
 
 		return results[0], nil
@@ -985,7 +989,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 		// Walk the directory recursively in a single thread
 		paths, gitIgnorePaths, walkDirError = getPathsRecursivelyRelativeTo(ctx, path)
 		if gogitstatus_debug_profiling {
-			fmt.Println("Walking time:", time.Since(start))
+			fmt.Println("Walking:", time.Since(start))
 		}
 		walkDirWaitGroup.Done()
 	}()
@@ -1003,7 +1007,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	start := time.Now()
 	indexEntries, err := ParseGitIndex(ctx, gitIndexPath)
 	if gogitstatus_debug_profiling {
-		fmt.Println("ParseGitIndex time:", time.Since(start))
+		fmt.Println("ParseGitIndex:", time.Since(start))
 	}
 	if err != nil {
 		return nil, errors.New("unable to read " + gitIndexPath + ": " + err.Error())
@@ -1028,7 +1032,7 @@ func StatusRaw(ctx context.Context, path string, gitIndexPath string, respectGit
 	start = time.Now()
 	out, err := trackedPathsChanged(ctx, path, indexEntries, numCPUs)
 	if gogitstatus_debug_profiling {
-		fmt.Println("Tracked time:", time.Since(start))
+		fmt.Println("Tracked:", time.Since(start))
 	}
 	if err != nil {
 		return nil, err
