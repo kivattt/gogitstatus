@@ -928,3 +928,25 @@ func TestBenchmarkParseGitIndex(t *testing.T) {
 	duration := time.Since(start)
 	fmt.Println(" " + duration.String())
 }
+
+func TestBenchmarkHashMatches(t *testing.T) {
+	howManyTimes := 1000
+	printGray("[Benchmark] hashMatches() " + strconv.Itoa(howManyTimes) + " times:")
+
+	data := []byte{}
+	for i := 0; i < 100_000; i++ {
+		data = append(data, byte(i%256))
+	}
+
+	hash := []byte{}
+	for i := 0; i < 20; i++ {
+		hash = append(hash, 69)
+	}
+
+	start := time.Now()
+	for i := 0; i < howManyTimes; i++ {
+		hashMatches(hash, data)
+	}
+	duration := time.Since(start)
+	fmt.Println(" " + duration.String())
+}
