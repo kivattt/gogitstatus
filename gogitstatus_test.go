@@ -950,3 +950,48 @@ func TestBenchmarkHashMatches(t *testing.T) {
 	duration := time.Since(start)
 	fmt.Println(" " + duration.String())
 }
+
+func TestBenchmarkIncludingDirectories(t *testing.T) {
+	empty := ChangedFile{}
+	changedFiles := map[string]ChangedFile{
+		".gitignore":            empty,
+		"folder1/file":          empty,
+		"folder2/file":          empty,
+		"folder3/file":          empty,
+		"folder4/file":          empty,
+		"folder5/file":          empty,
+		"folder6/file":          empty,
+		"folder7/file":          empty,
+		"folder8/file":          empty,
+		"folder9/file":          empty,
+		"folder10/file":         empty,
+		"folder10/folder1/file": empty,
+		"folder10/folder2/file": empty,
+		"folder10/folder3/file": empty,
+		"file1.txt":             empty,
+		"file2.txt":             empty,
+		"file3.txt":             empty,
+	}
+
+	/* IncludingDirectories() benchmark */
+	howManyTimes := 40000
+	printGray("[Benchmark] IncludingDirectories() " + strconv.Itoa(howManyTimes) + " times:")
+
+	start := time.Now()
+	for i := 0; i < howManyTimes; i++ {
+		IncludingDirectories(changedFiles)
+	}
+	duration := time.Since(start)
+	fmt.Println(" " + duration.String())
+
+	/* ExcludingDirectories() benchmark */
+	howManyTimes = 40000
+	printGray("[Benchmark] ExcludingDirectories() " + strconv.Itoa(howManyTimes) + " times:")
+	start = time.Now()
+	changedFiles = IncludingDirectories(changedFiles)
+	for i := 0; i < howManyTimes; i++ {
+		ExcludingDeleted(changedFiles)
+	}
+	duration = time.Since(start)
+	fmt.Println(" " + duration.String())
+}
