@@ -871,14 +871,14 @@ func spreadArrayIntoSlicesForGoroutines(arrayLength, numGoroutines int) []sliceT
 	// More goroutines than there are elements, use arrayLength goroutines instead.
 	// That is, 1 goroutine per element...
 	if numGoroutines >= arrayLength {
-		var result []sliceType
+		result := make([]sliceType, arrayLength)
 		for i := 0; i < arrayLength; i++ {
-			result = append(result, sliceType{i, 1})
+			result[i] = sliceType{i, 1}
 		}
 		return result
 	}
 
-	var result []sliceType
+	result := make([]sliceType, 0, numGoroutines)
 	lengthPerGoroutine := arrayLength / numGoroutines
 
 	rollingIndex := 0
