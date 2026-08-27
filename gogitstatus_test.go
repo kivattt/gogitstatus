@@ -990,6 +990,17 @@ func TestBenchmarkIncludingDirectories(t *testing.T) {
 	start = time.Now()
 	changedFiles = IncludingDirectories(changedFiles)
 	for i := 0; i < howManyTimes; i++ {
+		ExcludingDirectories(changedFiles)
+	}
+	duration = time.Since(start)
+	fmt.Println(" " + duration.String())
+
+	/* ExcludingDeleted() benchmark */
+	howManyTimes = 40000
+	printGray("[Benchmark] ExcludingDeleted() " + strconv.Itoa(howManyTimes) + " times:")
+	start = time.Now()
+	changedFiles = IncludingDirectories(changedFiles)
+	for i := 0; i < howManyTimes; i++ {
 		ExcludingDeleted(changedFiles)
 	}
 	duration = time.Since(start)
