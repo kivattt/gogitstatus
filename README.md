@@ -1,7 +1,6 @@
 ## gogitstatus
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/kivattt/gogitstatus.svg)](https://pkg.go.dev/github.com/kivattt/gogitstatus)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kivattt/gogitstatus)](https://goreportcard.com/report/github.com/kivattt/gogitstatus)
 
 gogitstatus is a library for finding unstaged/untracked files in local Git repositories (no staged files)\
 Tested for Linux, FreeBSD and Windows\

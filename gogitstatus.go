@@ -635,7 +635,7 @@ loop:
 			// If it's in the .git/index, it's tracked
 			_, tracked := indexEntries[filepath.ToSlash(rel)]
 			if tracked {
-				continue
+				continue loop
 			}
 
 			// Skip submodules (gitlinks)
